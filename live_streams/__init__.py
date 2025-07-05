@@ -105,6 +105,7 @@ class BLiveClient:
 
         if params:
             self._Main_Task = asyncio.create_task(run())
+            self.status = True
 
     async def _send_packet(self, packet_type: int, payload: bytes):
         """
@@ -252,32 +253,31 @@ class BLiveClient:
             except asyncio.CancelledError:
                 pass
             self._Main_Task = None
+        if self._ws:
+            await self._ws.close()
+            self._ws = None
         self.status = False
 
     async def close(self):
         if self._session and self.own_session:
             await self._session.close()
             self._session = None
-        if self._ws:
-            await self._ws.close()
-            self._ws = None
 
-    async def room_status(self):
+    async def auto_room_monitor(self):
         try:
-            while True:
-                async with self._session.get(GetRoomPlayInfo.format(self.room_id)) as response:
-                    response.raise_for_status()
-                    data = (await response.json())["data"]
-                if data["live_status"]:
-                    logger.info("开播中")
-                else:
-                    logger.info("未开播")
-                await asyncio.sleep(30)
-        except Exception as e:
-            logger.error("检测直播间状态失败", e=e)
-            return False
+            async with self._session.get(GetRoomPlayInfo.format(self.room_id)) as response:
+                response.raise_for_status()
+                data = (await response.json())["data"]
+            if data["live_status"] and not self.status:
+                logger.info(f"[{self.room_id}] | 直播开始,启动监听")
+                await self.start()
+            elif self.status:
+                logger.info(f"[{self.room_id}] | 直播结束,关闭监听")
+                await self.stop()
         except asyncio.CancelledError:
-            return True
+            logger.info("结束自动启停监控")
+        except Exception as e:
+            logger.error(f"检测直播间状态失败: {e}")
 
     async def send_msg(self, message: str, reply_mid: int = 0, reply_uname: str = ""):
         """发送弹幕"""
@@ -322,6 +322,11 @@ class BLiveClient:
             response.raise_for_status()
             data = await response.json()
         return data["data"]["mid"]
+
+    async def loop_room_monitor(self):
+        while True:
+            await self.auto_room_monitor()
+            await asyncio.sleep(30)
 
     async def __aenter__(self):
         return self
