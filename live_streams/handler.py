@@ -6,12 +6,11 @@ __all__ = (
     "Handler",
 )
 
-IGNORED_CMDS = (
+IGNORED_CMDS = {
     'COMBO_SEND',
     'ENTRY_EFFECT',
     'HOT_RANK_CHANGED',
     'HOT_RANK_CHANGED_V2',
-    'INTERACT_WORD',
     'LIVE',
     'LIVE_INTERACTIVE_GAME',
     'NOTICE_MSG',
@@ -30,7 +29,8 @@ IGNORED_CMDS = (
     'STOP_LIVE_ROOM_LIST',
     'SUPER_CHAT_MESSAGE_JPN',
     'WIDGET_BANNER',
-)
+    "RANK_CHANGED_V2",
+}
 """常见可忽略的cmd"""
 
 logged_unknown_cmds = set()
@@ -62,7 +62,7 @@ class Handler(HandlerInterface):
     @staticmethod
     async def _on_danmaku(room_id: int, message: dict):
         """收到弹幕"""
-        model: DanmakuMessage = DanmakuMessage.from_command(message["info"])
+        model: DanmakuMessage = DanmakuMessage.from_command(message)
         music_match = match_keyword(model.msg, MUSIC_KEYWORDS)
         print(
             f"[{room_id}] | {model.uname}: {model.msg} | 匹配: {music_match} | 等级: {model.user_level} | 舰队类型: {model.privilege_type}")
@@ -70,27 +70,27 @@ class Handler(HandlerInterface):
     @staticmethod
     async def _on_gift(room_id: int, message: dict):
         """收到礼物"""
-        model: GiftMessage = GiftMessage.from_command(message["data"])
+        model: GiftMessage = GiftMessage.from_command(message)
         print(
             f"[{room_id}] | {model.uname} 赠送{model.gift_name}x{model.num}, ({model.coin_type}瓜子x{model.total_coin})")
 
     @staticmethod
     async def _on_buy_guard(room_id: int, message: dict):
         """有人上舰"""
-        model: GuardBuyMessage = GuardBuyMessage.from_command(message["data"])
+        model: GuardBuyMessage = GuardBuyMessage.from_command(message)
         print(f"[{room_id}] | {model.username} 购买{model.gift_name}")
 
     @staticmethod
     async def _on_super_chat(room_id: int, message: dict):
         """醒目留言"""
-        model: SuperChatMessage = SuperChatMessage.from_command(message["data"])
+        model: SuperChatMessage = SuperChatMessage.from_command(message)
         print(f"[{room_id}] | 醒目留言 ¥{model.price} | {model.uname}：{model.message}")
 
     @staticmethod
     async def _interact_word(room_id: int, message: dict):
         """入场消息回调"""
-        model: GeneralMessage = GeneralMessage.from_command(message["data"])
-        print(f"[{room_id}] | uname: {model.raw_message['data']['uname']}")
+        model: GeneralMessage = GeneralMessage.from_command(message)
+        print(f"[{room_id}] | {model.raw_message['uname']} 进入直播间")
 
     @staticmethod
     async def _on_super_chat_delete(room_id: int, message: dict):
@@ -100,14 +100,26 @@ class Handler(HandlerInterface):
     @staticmethod
     async def _on_notice_message(room_id: int, message: dict) -> None:
         """系统日志消息"""
-        model: NoticeMessage = NoticeMessage.from_command(message["data"])
+        model: LoginNoticeMessage = LoginNoticeMessage.from_command(message)
         print(f"[{room_id}] | 日志: {model.message}")
 
     @staticmethod
     async def _on_watched_change(room_id: int, message: dict):
         """观看过的人数"""
-        model: WatchedChangeMessage = WatchedChangeMessage.from_command(message["data"])
+        model: WatchedChangeMessage = WatchedChangeMessage.from_command(message)
         print(f"[{room_id}] | 观看人数: {model.text_large}")
+
+    @staticmethod
+    async def _on_click_like(room_id: int, message: dict) -> None:
+        """用户点赞"""
+        model: LikeClickMessage = LikeClickMessage.from_command(message)
+        print(f"[{room_id}] | 用户[{model.uname}]{model.like_text}")
+
+    @staticmethod
+    async def _on_like_info_update(room_id: int, message: dict) -> None:
+        """点赞数量更新"""
+        model: LikeUpdateMessage = LikeUpdateMessage.from_command(message)
+        print(f"[{room_id}] | 点赞量:{model.click_count}")
 
     _CMD_CALLBACK_DICT: dict[str, Optional[Any]] = {
         # 收到弹幕
@@ -126,6 +138,10 @@ class Handler(HandlerInterface):
         "LOG_IN_NOTICE": _on_notice_message,
         # 观看人数
         "WATCHED_CHANGE": _on_watched_change,
+        # 用户点赞
+        "LIKE_INFO_V3_CLICK": _on_click_like,
+        # 点赞数量
+        "LIKE_INFO_V3_UPDATE": _on_like_info_update,
     }
     """cmd -> 处理回调"""
     # 忽略其他常见cmd
@@ -149,3 +165,4 @@ class Handler(HandlerInterface):
             if cmd not in logged_unknown_cmds:
                 logged_unknown_cmds.add(cmd)
                 print(f"[{room_id}] | 未知CMD:{cmd} | 原始消息:{message}")
+            print(f"未解析CMD:{cmd}")

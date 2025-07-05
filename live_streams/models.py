@@ -13,8 +13,10 @@ __all__ = (
     "MessageInterface",
     "SuperChatDeleteMessage",
     "SuperChatMessage",
-    "NoticeMessage",
+    "LoginNoticeMessage",
     "WatchedChangeMessage",
+    "LikeClickMessage",
+    "LikeUpdateMessage",
 )
 
 
@@ -54,7 +56,7 @@ class MessageInterface(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_command(cls, message: dict):
+    def from_command(cls, raw_msg: dict):
         raise NotImplementedError("from_command")
 
 
@@ -79,31 +81,44 @@ class GeneralMessage(MessageInterface):
     """原始消息"""
 
     @classmethod
-    def from_command(cls, message: dict):
-        return cls(raw_message=message)
+    def from_command(cls, raw_msg: dict):
+        return cls(raw_message=raw_msg["data"])
 
 
 @dataclasses.dataclass
-class NoticeMessage(MessageInterface):
+class LoginNoticeMessage(MessageInterface):
+    """
+    未登录提示日志
+    """
+
     message: str = None
+    """提示信息"""
 
     @classmethod
-    def from_command(cls, message: dict):
-        return cls(message=message["data"]["notice_msg"])
+    def from_command(cls, raw_msg: dict):
+        return cls(message=raw_msg["data"]["notice_msg"])
 
 
 @dataclasses.dataclass
 class WatchedChangeMessage(MessageInterface):
+    """
+    观看人数
+    """
+
     num: int = None
+    """看过人数"""
     text_small: str = None
+    """num的字符串格式"""
     text_large: str = None
+    """格式化后中文格式: xxx人看过"""
 
     @classmethod
-    def from_command(cls, message: dict):
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
         return cls(
-            num=message["num"],
-            text_small=message["text_small"],
-            text_large=message["text_large"],
+            num=data["num"],
+            text_small=data["text_small"],
+            text_large=data["text_large"],
         )
 
 
@@ -187,7 +202,8 @@ class DanmakuMessage(MessageInterface):
     """舰队类型，0非舰队，1总督，2提督，3舰长"""
 
     @classmethod
-    def from_command(cls, info: dict):
+    def from_command(cls, raw_msg: dict):
+        info = raw_msg["info"]
         if len(info[3]) != 0:
             medal_level = info[3][0]
             medal_name = info[3][1]
@@ -315,7 +331,8 @@ class GiftMessage(MessageInterface):
     """可能是事务ID，有时和rnd相同"""
 
     @classmethod
-    def from_command(cls, data: dict):
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
         return cls(
             gift_name=data["giftName"],
             num=data["num"],
@@ -361,7 +378,8 @@ class GuardBuyMessage(MessageInterface):
     """结束时间戳，和开始时间戳相同"""
 
     @classmethod
-    def from_command(cls, data: dict):
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
         return cls(
             uid=data["uid"],
             username=data["username"],
@@ -421,7 +439,8 @@ class SuperChatMessage(MessageInterface):
     """背景价格颜色，'#rrggbb'"""
 
     @classmethod
-    def from_command(cls, data: dict):
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
         return cls(
             price=data["price"],
             message=data["message"],
@@ -458,4 +477,76 @@ class SuperChatDeleteMessage(MessageInterface):
     def from_command(cls, data: dict):
         return cls(
             ids=data["ids"],
+        )
+
+
+@dataclasses.dataclass
+class LikeClickMessage(MessageInterface):
+    uname: str = None
+    """用户名"""
+    uid: int = None
+    """用户MID"""
+    face: str = None
+    """用户头像URL"""
+    like_text: str = None
+    """提示信息"""
+
+    @classmethod
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
+        return cls(
+            uname=data["uname"],
+            uid=data["uinfo"]["uid"],
+            face=data["uinfo"]["base"]["face"],
+            like_text=data["like_text"],
+        )
+
+
+@dataclasses.dataclass
+class LikeUpdateMessage(MessageInterface):
+    click_count: int = None
+    """点赞数"""
+
+    @classmethod
+    def from_command(cls, raw_msg: dict):
+        return cls(
+            click_count=raw_msg["data"]["click_count"],
+        )
+
+
+@dataclasses.dataclass
+class UserToastMessage(MessageInterface):
+    """
+    用户庆祝消息
+    用户购买 舰长/提督/总督 后的庆祝消息, 内容包含用户陪伴天数
+    """
+
+    anchor_show: bool = None
+    """是否显示"""
+    color: str = None
+    """颜色"""
+    gift_id: int = None
+    """礼物ID"""
+    guard_level: int = None
+    """大航海等级: 1:总督/2:提督/3:舰长"""
+    num: int = None
+    """上舰个数"""
+    price: int = None
+    """实际金瓜子标价 CNY*1000"""
+    role_name: str = None
+    """身份名称"""
+    toast_msg: str = None
+    """庆祝消息正文"""
+    uid: int = None
+    """上舰人MID"""
+    unit: str = None
+    """购买身份时间单位"""
+    username: str = None
+    """用户名"""
+
+    @classmethod
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
+        return cls(
+
         )

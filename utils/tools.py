@@ -8,7 +8,6 @@ import threading
 import time
 import tomllib
 import urllib.parse
-from ast import literal_eval
 from functools import reduce
 from hashlib import md5
 from pathlib import Path
@@ -261,46 +260,3 @@ class ConfigManage:
     def get_all_config(self) -> dict[str, Any]:
         """获取包含所有配置的字典"""
         return self.configs
-
-
-def flatten_dict(d: dict, parent_key: str = "", sep: str = "_", current_depth: int = 0, max_depth: int = None,
-                 default: str = "default") -> dict:
-    """
-    将嵌套字典扁平化为单级字典
-    :param d: 需要扁平化的字典
-    :param parent_key: 要添加到子键前面的主键
-    :param sep: 键之间使用的分隔符
-    :param current_depth: 展平字典的当前深度
-    :param max_depth: 需要展平的最大深度
-    :param default: 用于 max_depth 处嵌套字典的默认值
-    :return: 扁平化的字典
-    """
-    if not isinstance(d, dict):
-        raise TypeError("input must be a dict")
-    items = {}
-    for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        if isinstance(v, dict):
-            if max_depth is None or current_depth < max_depth:
-                items.update(flatten_dict(v, new_key, sep=sep, current_depth=current_depth + 1, max_depth=max_depth,
-                                          default=default))
-            else:
-                items[new_key] = default if default != "default" else str(v)
-        else:
-            items[new_key] = str(v)
-    return items
-
-
-def convert_str_to_list(str_list: str) -> list[int] | None:
-    """
-    将字符串类型列表安全转换成Python对象
-    :param str_list: 字符串列表,如'[1, 2, 3]'
-    :return: Python列表对象
-    """
-    try:
-        result = literal_eval(str_list)
-        if isinstance(result, list):
-            return result
-        return None
-    except (ValueError, SyntaxError):
-        return None
