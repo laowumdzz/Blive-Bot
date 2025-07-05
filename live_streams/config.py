@@ -19,17 +19,12 @@ class Config(BaseModel):
 
 
 CMD_TO_INFO = {
-    "DANMU_MSG": "弹幕",
     "DM_INTERACTION": "连续弹幕消息",
     "INTERACT_WORD": "进场或关注消息",
-    "GUARD_BUY": "上舰通知",
     "USER_TOAST_MSG": "用户庆祝消息",
     "SUPER_CHAT_MESSAGE": "醒目留言",
-    "SEND_GIFT": "送礼",
     "GIFT_STAR_PROCESS": "礼物星球点亮",
     "COMBO_SEND": "礼物连击",
-    "NOTICE_MSG": "通知消息",
-    "LOG_IN_NOTICE": "日志",
     "PREPARING": "主播准备中",
     "ROOM_REAL_TIME_MESSAGE_UPDATE": "主播信息更新",
     "ONLINE_RANK_V2": "直播间高能榜",
@@ -41,7 +36,6 @@ CMD_TO_INFO = {
     "POPULARITY_RED_POCKET_START": "直播间发红包弹幕",
     "POPULARITY_RED_POCKET_NEW": "直播间红包",
     "POPULARITY_RED_POCKET_WINNER_LIST": "直播间抢到红包的用户",
-    "WATCHED_CHANGE": "直播间看过人数",
     "ENTRY_EFFECT": "用户进场特效",
     "AREA_RANK_CHANGED": "直播间在所属分区的排名改变",
     "COMMON_NOTICE_DANMAKU": "直播间在所属分区排名提升的祝福",

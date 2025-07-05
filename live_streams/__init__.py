@@ -181,7 +181,6 @@ class BLiveClient:
                 await self._on_message(
                     await asyncio.to_thread(brotli.decompress, payload))
             case ProtoVer.NORMAL:
-                logger.debug("正文未被压缩,正在解析")
                 if len(payload) != 0:
                     decode_body = json.loads(payload.decode())
                     await self._msg_hander.handle(self.room_id, decode_body)
