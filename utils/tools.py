@@ -251,12 +251,14 @@ class ConfigManage:
         self.configs.update(new_configs)
         logger.success("Config updated successfully!")
 
-    def get_config(self, config: type[C], name: str = None) -> C:
+    @classmethod
+    def get_config(cls, config: type[C], name: str = None) -> C:
         """从全局配置获取当前插件需要的配置项"""
         if name:
-            return TypeAdapter(config).validate_python(self.configs[name])
-        return TypeAdapter(config).validate_python(self.configs)
+            return TypeAdapter(config).validate_python(cls().configs[name])
+        return TypeAdapter(config).validate_python(cls().configs)
 
-    def get_all_config(self) -> dict[str, Any]:
+    @classmethod
+    def get_all_config(cls) -> dict[str, Any]:
         """获取包含所有配置的字典"""
-        return self.configs
+        return cls().configs

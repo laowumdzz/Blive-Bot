@@ -15,6 +15,9 @@ from live_streams import BLiveClient, models, Handler
 
 MUSIC_KEYWORDS = {"点歌", "来一首", "来首", "放首", "点一首"}
 room_task: dict[int, BLiveClient]
+count: dict[str, int] = {
+    "WatchNum": 0,
+}
 
 
 def match_keyword(input_string: str, keywords) -> Optional[str]:
@@ -53,7 +56,10 @@ async def _(model: models.LikeUpdateMessage):
 
 @Handler.append_func(models.WatchedChangeMessage)
 async def _(model: models.WatchedChangeMessage):
-    print(f"[{model.room_id}] | 观看人数: {model.text_large}")
+    if count["WatchNum"] >= 10:
+        print(f"[{model.room_id}] | 观看人数: {model.text_large}")
+        return
+    count["WatchNum"] += 1
 
 
 @Handler.append_func(models.LikeClickMessage)
@@ -66,11 +72,6 @@ async def _(model: models.LoginNoticeMessage):
     print(f"[{model.room_id}] | 日志: {model.message}")
 
 
-@Handler.append_func(models.GeneralMessage)
-async def _(model: models.GeneralMessage):
-    print(f"[{model.room_id}] | {model.raw_message['uname']} 进入直播间")
-
-
 @Handler.append_func(models.SuperChatMessage)
 async def _(model: models.SuperChatMessage):
     print(f"[{model.room_id}] | 醒目留言 ¥{model.price} | {model.uname}：{model.message}")
@@ -79,6 +80,18 @@ async def _(model: models.SuperChatMessage):
 @Handler.append_func(models.GuardBuyMessage)
 async def _(model: models.GuardBuyMessage):
     print(f"[{model.room_id}] | {model.username} 购买{model.gift_name}")
+
+
+# @Handler.append_func(models.InteractWordMessage)
+# async def _(model: models.InteractWordMessage):
+#     match model.msg_type:
+#         case 2:
+#             type_str = "关注直播间"
+#         case 3:
+#             type_str = "分享直播间"
+#         case _:
+#             type_str = "进入直播间"
+#     print(f"[{model.room_id}] | 用户:[{model.uname}] {type_str}")
 
 
 async def main():
@@ -94,7 +107,7 @@ async def main():
 
 
 if __name__ == '__main__':
-    config = ConfigManage().get_config(Config)
+    config = ConfigManage.get_config(Config)
     log_path = Path(os.getenv('LOG_PATH') or Path.cwd())
     logger.remove()
     logger.add(log_path / f"{os.path.basename(__file__).split('.')[0]}.log", level="DEBUG")

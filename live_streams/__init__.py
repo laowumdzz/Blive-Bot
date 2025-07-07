@@ -17,7 +17,7 @@ from utils.tools import Signedparams, TEMP_PATH
 from .config import Config
 from .enum import Operation, ProtoVer, AuthReplyCode
 from .exception import AuthError
-from .handler import HandlerInterface, Handler
+from .handler import Handler
 from .models import HeaderTuple
 
 GetRoomPlayInfo = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id={}&protocol=0&platform=web"
@@ -38,13 +38,13 @@ class BLiveClient:
             room_id: int = None,
             user_id: int = None,
             session_: aiohttp.ClientSession = None,
-            handler_: HandlerInterface = Handler(),
+            handler_: Handler = Handler(),
     ):
         self.room_id = room_id
         self.user_id = user_id
         if not (room_id or user_id):
             raise KeyError("not found room_id or user_id")
-        self._msg_hander: HandlerInterface = handler_
+        self._msg_hander: Handler = handler_
         self.own_session = False
         if not session_:
             self.own_session = True
@@ -329,6 +329,7 @@ class BLiveClient:
                 data = await response.json()
             return data["data"]["mid"]
         except KeyError:
+            logger.warning("获取登录用户UID失败,使用游客登录")
             return 0
 
     async def loop_room_monitor(self):

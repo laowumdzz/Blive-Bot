@@ -46,6 +46,7 @@ _msg_type = Union[
     type[WatchedChangeMessage],
     type[LikeClickMessage],
     type[LikeUpdateMessage],
+    type[InteractWordMessage],
 ]
 logged_unknown_cmds = set()
 
@@ -70,7 +71,7 @@ class Handler:
         # 删除醒目留言
         "SUPER_CHAT_MESSAGE_DELETE": SuperChatDeleteMessage,
         # 入场消息
-        "INTERACT_WORD": GeneralMessage,
+        "INTERACT_WORD": InteractWordMessage,
         # 日志消息
         "LOG_IN_NOTICE": LoginNoticeMessage,
         # 观看人数
