@@ -1,4 +1,6 @@
-from typing import Optional, Any
+"""消息解析模块"""
+import asyncio
+from typing import Optional, Union
 
 from .models import *
 
@@ -33,120 +35,57 @@ IGNORED_CMDS = {
 }
 """常见可忽略的cmd"""
 
+_msg_type = Union[
+    type[DanmakuMessage],
+    type[GeneralMessage],
+    type[GiftMessage],
+    type[GuardBuyMessage],
+    type[SuperChatMessage],
+    type[SuperChatDeleteMessage],
+    type[LoginNoticeMessage],
+    type[WatchedChangeMessage],
+    type[LikeClickMessage],
+    type[LikeUpdateMessage],
+]
 logged_unknown_cmds = set()
 
-MUSIC_KEYWORDS = {"点歌", "来一首", "来首", "放首", "点一首"}
 
-
-def match_keyword(input_string: str, keywords) -> Optional[str]:
+class Handler:
     """
-    匹配输入字符串中的第一个关键字(来自关键字数组)
-    :param input_string: 要搜索的字符串
-    :param keywords: 关键字列表
-    :return: 匹配到的第一个关键字后的内容(不带后面的空格)，如果没有匹配则返回None
-    """
-    for keyword in keywords:
-        start = input_string.find(keyword)
-        if start != -1:
-            end = start + len(keyword)
-            if end < len(input_string):
-                return input_string[end:].strip()
-    return None
-
-
-class Handler(HandlerInterface):
-    """
-    一个简单的消息处理器实现，带消息分发和消息类型转换。继承并重写_on_xxx方法即可实现自己的处理器
+    直播消息处理器, 带消息分发和消息类型转换.
+    请使用append_func装饰器装饰解析函数, 并标注需要注入的消息类型, 如:
+    @Handler.append_func(DanmakuMessage)
+    async def _(model):
     """
 
-    @staticmethod
-    async def _on_danmaku(room_id: int, message: dict):
-        """收到弹幕"""
-        model: DanmakuMessage = DanmakuMessage.from_command(message)
-        music_match = match_keyword(model.msg, MUSIC_KEYWORDS)
-        print(
-            f"[{room_id}] | {model.uname}: {model.msg} | 匹配: {music_match} | 等级: {model.user_level} | 舰队类型: {model.privilege_type}")
-
-    @staticmethod
-    async def _on_gift(room_id: int, message: dict):
-        """收到礼物"""
-        model: GiftMessage = GiftMessage.from_command(message)
-        print(
-            f"[{room_id}] | {model.uname} 赠送{model.gift_name}x{model.num}, ({model.coin_type}瓜子x{model.total_coin})")
-
-    @staticmethod
-    async def _on_buy_guard(room_id: int, message: dict):
-        """有人上舰"""
-        model: GuardBuyMessage = GuardBuyMessage.from_command(message)
-        print(f"[{room_id}] | {model.username} 购买{model.gift_name}")
-
-    @staticmethod
-    async def _on_super_chat(room_id: int, message: dict):
-        """醒目留言"""
-        model: SuperChatMessage = SuperChatMessage.from_command(message)
-        print(f"[{room_id}] | 醒目留言 ¥{model.price} | {model.uname}：{model.message}")
-
-    @staticmethod
-    async def _interact_word(room_id: int, message: dict):
-        """入场消息回调"""
-        model: GeneralMessage = GeneralMessage.from_command(message)
-        print(f"[{room_id}] | {model.raw_message['uname']} 进入直播间")
-
-    @staticmethod
-    async def _on_super_chat_delete(room_id: int, message: dict):
-        """删除醒目留言"""
-        # model = SuperChatDeleteMessage.from_command(message["data"])
-
-    @staticmethod
-    async def _on_notice_message(room_id: int, message: dict) -> None:
-        """系统日志消息"""
-        model: LoginNoticeMessage = LoginNoticeMessage.from_command(message)
-        print(f"[{room_id}] | 日志: {model.message}")
-
-    @staticmethod
-    async def _on_watched_change(room_id: int, message: dict):
-        """观看过的人数"""
-        model: WatchedChangeMessage = WatchedChangeMessage.from_command(message)
-        print(f"[{room_id}] | 观看人数: {model.text_large}")
-
-    @staticmethod
-    async def _on_click_like(room_id: int, message: dict) -> None:
-        """用户点赞"""
-        model: LikeClickMessage = LikeClickMessage.from_command(message)
-        print(f"[{room_id}] | 用户[{model.uname}]{model.like_text}")
-
-    @staticmethod
-    async def _on_like_info_update(room_id: int, message: dict) -> None:
-        """点赞数量更新"""
-        model: LikeUpdateMessage = LikeUpdateMessage.from_command(message)
-        print(f"[{room_id}] | 点赞量:{model.click_count}")
-
-    _CMD_CALLBACK_DICT: dict[str, Optional[Any]] = {
+    _CMD_MODEL_DICT: dict[str, Optional[_msg_type]] = {
         # 收到弹幕
-        "DANMU_MSG": _on_danmaku,
+        "DANMU_MSG": DanmakuMessage,
         # 有人送礼
-        "SEND_GIFT": _on_gift,
+        "SEND_GIFT": GiftMessage,
         # 有人上舰
-        "GUARD_BUY": _on_buy_guard,
+        "GUARD_BUY": GuardBuyMessage,
         # 醒目留言
-        "SUPER_CHAT_MESSAGE": _on_super_chat,
+        "SUPER_CHAT_MESSAGE": SuperChatMessage,
         # 删除醒目留言
-        "SUPER_CHAT_MESSAGE_DELETE": _on_super_chat_delete,
+        "SUPER_CHAT_MESSAGE_DELETE": SuperChatDeleteMessage,
         # 入场消息
-        "INTERACT_WORD": _interact_word,
+        "INTERACT_WORD": GeneralMessage,
         # 日志消息
-        "LOG_IN_NOTICE": _on_notice_message,
+        "LOG_IN_NOTICE": LoginNoticeMessage,
         # 观看人数
-        "WATCHED_CHANGE": _on_watched_change,
+        "WATCHED_CHANGE": WatchedChangeMessage,
         # 用户点赞
-        "LIKE_INFO_V3_CLICK": _on_click_like,
+        "LIKE_INFO_V3_CLICK": LikeClickMessage,
         # 点赞数量
-        "LIKE_INFO_V3_UPDATE": _on_like_info_update,
+        "LIKE_INFO_V3_UPDATE": LikeUpdateMessage,
+        # 用户庆祝消息
+        "USER_TOAST_MSG": UserToastMessage,
     }
     """cmd -> 处理回调"""
     # 忽略其他常见cmd
     for cmd in IGNORED_CMDS:
-        _CMD_CALLBACK_DICT[cmd] = None
+        _CMD_MODEL_DICT[cmd] = None
     del cmd
 
     @classmethod
@@ -156,13 +95,22 @@ class Handler(HandlerInterface):
         if pos != -1:
             cmd = cmd[:pos]
 
-        callback = cls._CMD_CALLBACK_DICT.get(cmd)
-        if callback is not None:
-            await callback(room_id, message)
+        model_type = cls._CMD_MODEL_DICT.get(cmd)
+        if model_type is not None:
+            model = model_type.from_command(message)
+            model.room_id = room_id
+            await asyncio.gather(*(fun(model) for fun in model._func))
 
-        if cmd not in cls._CMD_CALLBACK_DICT:
+        if cmd not in cls._CMD_MODEL_DICT:
             # 只有第一次遇到未知cmd时打日志
             if cmd not in logged_unknown_cmds:
                 logged_unknown_cmds.add(cmd)
                 print(f"[{room_id}] | 未知CMD:{cmd} | 原始消息:{message}")
             print(f"未解析CMD:{cmd}")
+
+    @classmethod
+    def append_func(cls, msg_type: _msg_type):
+        def decorator(func):
+            msg_type._func.append(func)
+
+        return decorator
