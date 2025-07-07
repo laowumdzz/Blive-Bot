@@ -18,6 +18,7 @@ __all__ = (
     "LikeClickMessage",
     "LikeUpdateMessage",
     "UserToastMessage",
+    "InteractWordMessage",
 )
 
 
@@ -467,6 +468,9 @@ class SuperChatDeleteMessage(MessageInterface):
 
 @dataclasses.dataclass
 class LikeClickMessage(MessageInterface):
+    """
+    用户点赞事件
+    """
     uname: str = None
     """用户名"""
     uid: int = None
@@ -489,6 +493,9 @@ class LikeClickMessage(MessageInterface):
 
 @dataclasses.dataclass
 class LikeUpdateMessage(MessageInterface):
+    """
+    点赞数量更新
+    """
     click_count: int = None
     """点赞数"""
 
@@ -546,6 +553,32 @@ class UserToastMessage(MessageInterface):
         )
 
 
+@dataclasses.dataclass
+class InteractWordMessage(MessageInterface):
+    """
+    入场消息
+    """
+
+    uname: str = None
+    """用户名"""
+    uid: int = None
+    """用户MID"""
+    face: str = None
+    """用户头像URL"""
+    msg_type: int = None
+    """消息类型:1.为进场/2.为关注/3.为分享"""
+
+    @classmethod
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
+        return cls(
+            uname=data["uname"],
+            uid=data["uid"],
+            face=data["uinfo"]["base"]["face"],
+            msg_type=data["msg_type"],
+        )
+
+
 DanmakuMessage._func = []
 GeneralMessage._func = []
 WatchedChangeMessage._func = []
@@ -557,3 +590,4 @@ SuperChatDeleteMessage._func = []
 LikeClickMessage._func = []
 LikeUpdateMessage._func = []
 UserToastMessage._func = []
+InteractWordMessage._func = []
