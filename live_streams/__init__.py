@@ -1,3 +1,4 @@
+"""BLive客户端"""
 import asyncio
 import json
 import os
@@ -76,8 +77,8 @@ class BLiveClient:
                 "key": data["token"]
             }
             uris = {f"wss://{d['host']}:{d['wss_port']}/sub" for d in data["host_list"]}
-        except KeyError as e:
-            logger.error(f"{e}: 未找到该直播间或已被风控")
+        except KeyError:
+            logger.error("未找到该直播间或已被风控")
             return None
         else:
             return uris, json.dumps(auth).encode()
@@ -102,6 +103,16 @@ class BLiveClient:
             finally:
                 if self._Heartbeat_Task is not None:
                     self._Heartbeat_Task.cancel()
+                    try:
+                        await asyncio.wait_for(self._Heartbeat_Task, timeout=5.0)
+                    except asyncio.TimeoutError:
+                        logger.warning("心跳任务取消超时")
+                    except asyncio.CancelledError:
+                        pass
+                    self._Heartbeat_Task = None
+                if self._ws:
+                    await self._ws.close()
+                    self._ws = None
 
         if params:
             self._Main_Task = asyncio.create_task(run())
@@ -235,15 +246,6 @@ class BLiveClient:
         await self.stop()
 
     async def stop(self):
-        if self._Heartbeat_Task is not None:
-            self._Heartbeat_Task.cancel()
-            try:
-                await asyncio.wait_for(self._Heartbeat_Task, timeout=5.0)
-            except asyncio.TimeoutError:
-                logger.warning("心跳任务取消超时")
-            except asyncio.CancelledError:
-                pass
-            self._Heartbeat_Task = None
         if self._Main_Task is not None:
             try:
                 self._Main_Task.cancel()
@@ -253,9 +255,6 @@ class BLiveClient:
             except asyncio.CancelledError:
                 pass
             self._Main_Task = None
-        if self._ws:
-            await self._ws.close()
-            self._ws = None
         self.status = False
 
     async def close(self):
@@ -271,7 +270,7 @@ class BLiveClient:
             if data["live_status"] and not self.status:
                 logger.info(f"[{self.room_id}] | 直播开始,启动监听")
                 await self.start()
-            elif self.status:
+            if not data["live_status"] and self.status:
                 logger.info(f"[{self.room_id}] | 直播结束,关闭监听")
                 await self.stop()
         except asyncio.CancelledError:
@@ -280,7 +279,13 @@ class BLiveClient:
             logger.error(f"检测直播间状态失败: {e}")
 
     async def send_msg(self, message: str, reply_mid: int = 0, reply_uname: str = ""):
-        """发送弹幕"""
+        """
+        发送弹幕
+        :param message: 需要发送的消息
+        :param reply_mid: 需要@时提供的用户mid
+        :param reply_uname: 需要@时提供的用户名字
+        :return: None
+        """
         data = {
             "roomid": self.room_id,
             "csrf": await self._get_cookie_csrf(),
@@ -318,10 +323,13 @@ class BLiveClient:
         return csrf[9:csrf.find(';')]
 
     async def _get_login_mid(self) -> int:
-        async with self._session.get("https://api.bilibili.com/x/space/myinfo") as response:
-            response.raise_for_status()
-            data = await response.json()
-        return data["data"]["mid"]
+        try:
+            async with self._session.get("https://api.bilibili.com/x/space/myinfo") as response:
+                response.raise_for_status()
+                data = await response.json()
+            return data["data"]["mid"]
+        except KeyError:
+            return 0
 
     async def loop_room_monitor(self):
         while True:

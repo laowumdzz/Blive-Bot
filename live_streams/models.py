@@ -1,10 +1,10 @@
+"""消息模板"""
 import abc
 import dataclasses
 import json
 from typing import NamedTuple
 
 __all__ = (
-    "HandlerInterface",
     "DanmakuMessage",
     "GeneralMessage",
     "GiftMessage",
@@ -17,6 +17,7 @@ __all__ = (
     "WatchedChangeMessage",
     "LikeClickMessage",
     "LikeUpdateMessage",
+    "UserToastMessage",
 )
 
 
@@ -60,17 +61,6 @@ class MessageInterface(abc.ABC):
         raise NotImplementedError("from_command")
 
 
-class HandlerInterface(abc.ABC):
-    """
-    直播消息处理器接口
-    """
-
-    @classmethod
-    @abc.abstractmethod
-    async def handle(cls, room_id, command: dict) -> str:
-        raise NotImplementedError("handle")
-
-
 @dataclasses.dataclass
 class GeneralMessage(MessageInterface):
     """
@@ -82,7 +72,8 @@ class GeneralMessage(MessageInterface):
 
     @classmethod
     def from_command(cls, raw_msg: dict):
-        return cls(raw_message=raw_msg["data"])
+        data = raw_msg["data"]
+        return cls(raw_message=data)
 
 
 @dataclasses.dataclass
@@ -96,7 +87,8 @@ class LoginNoticeMessage(MessageInterface):
 
     @classmethod
     def from_command(cls, raw_msg: dict):
-        return cls(message=raw_msg["data"]["notice_msg"])
+        data = raw_msg["data"]
+        return cls(message=data["notice_msg"])
 
 
 @dataclasses.dataclass
@@ -232,9 +224,7 @@ class DanmakuMessage(MessageInterface):
             emoticon_options=info[0][13],
             voice_config=info[0][14],
             mode_info=info[0][15],
-
             msg=info[1],
-
             uid=info[2][0],
             uname=info[2][1],
             admin=info[2][2],
@@ -243,21 +233,17 @@ class DanmakuMessage(MessageInterface):
             urank=info[2][5],
             mobile_verify=info[2][6],
             uname_color=info[2][7],
-
             medal_level=medal_level,
             medal_name=medal_name,
             runame=runame,
             medal_room_id=room_id,
             mcolor=mcolor,
             special_medal=special_medal,
-
             user_level=info[4][0],
             ulevel_color=info[4][2],
             ulevel_rank=info[4][3],
-
             old_title=info[5][0],
             title=info[5][1],
-
             privilege_type=info[7],
         )
 
@@ -474,10 +460,9 @@ class SuperChatDeleteMessage(MessageInterface):
     """醒目留言ID数组"""
 
     @classmethod
-    def from_command(cls, data: dict):
-        return cls(
-            ids=data["ids"],
-        )
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
+        return cls(ids=data["ids"])
 
 
 @dataclasses.dataclass
@@ -509,9 +494,8 @@ class LikeUpdateMessage(MessageInterface):
 
     @classmethod
     def from_command(cls, raw_msg: dict):
-        return cls(
-            click_count=raw_msg["data"]["click_count"],
-        )
+        data = raw_msg["data"]
+        return cls(click_count=data["click_count"])
 
 
 @dataclasses.dataclass
@@ -548,5 +532,28 @@ class UserToastMessage(MessageInterface):
     def from_command(cls, raw_msg: dict):
         data = raw_msg["data"]
         return cls(
-
+            anchor_show=data["anchor_show"],
+            color=data["color"],
+            gift_id=data["gift_id"],
+            guard_level=data["guard_level"],
+            num=data["num"],
+            price=data["price"],
+            role_name=data["role_name"],
+            toast_msg=data["toast_msg"],
+            uid=data["uid"],
+            unit=data["unit"],
+            username=data["username"],
         )
+
+
+DanmakuMessage._func = []
+GeneralMessage._func = []
+WatchedChangeMessage._func = []
+LoginNoticeMessage._func = []
+GiftMessage._func = []
+GuardBuyMessage._func = []
+SuperChatMessage._func = []
+SuperChatDeleteMessage._func = []
+LikeClickMessage._func = []
+LikeUpdateMessage._func = []
+UserToastMessage._func = []
