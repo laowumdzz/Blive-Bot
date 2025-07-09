@@ -1,8 +1,11 @@
 """消息模板"""
 import abc
+import base64
 import dataclasses
 import json
 from typing import NamedTuple
+
+import utils.InteractWordV2 as InteractWordV2
 
 __all__ = (
     "DanmakuMessage",
@@ -19,6 +22,7 @@ __all__ = (
     "LikeUpdateMessage",
     "UserToastMessage",
     "InteractWordMessage",
+    "InteractWordV2Message",
 )
 
 
@@ -554,7 +558,7 @@ class UserToastMessage(MessageInterface):
 
 
 @dataclasses.dataclass
-class InteractWordMessage(MessageInterface):
+class InteractWordMessage(MessageInterface):  # TODO: 更换新命令INTERACT_WORD_V2
     """
     入场消息
     """
@@ -579,6 +583,35 @@ class InteractWordMessage(MessageInterface):
         )
 
 
+@dataclasses.dataclass
+class InteractWordV2Message(MessageInterface):
+    """
+    入场消息V2
+    """
+
+    uname: str = None
+    """用户名"""
+    uid: int = None
+    """用户MID"""
+    face: str = None
+    """用户头像URL"""
+    msg_type: int = None
+    """消息类型:1.为进场/2.为关注/3.为分享"""
+
+    @classmethod
+    def from_command(cls, raw_msg: dict):
+        data = raw_msg["data"]
+        pb = InteractWordV2.INTERACT_WORD_V2()
+        pb.ParseFromString(base64.b64decode(data["pb"]))
+        return cls(
+            uname=pb.uname,
+            uid=pb.uid,
+            msg_type=pb.msg_type,
+            face='fyex6922'
+        )
+
+
+# TODO: 替换掉手动添加类变量方式
 DanmakuMessage._func = []
 GeneralMessage._func = []
 WatchedChangeMessage._func = []
@@ -591,3 +624,4 @@ LikeClickMessage._func = []
 LikeUpdateMessage._func = []
 UserToastMessage._func = []
 InteractWordMessage._func = []
+InteractWordV2Message._func = []

@@ -218,25 +218,21 @@ class ConfigManage:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                cls._instance._initialized = False
             return cls._instance
 
     def __init__(self, file: Union[str, Path] = None, **kwargs):
-        if self._initialized:
-            return
-        self._initialized = True
-
         if file is None:
             file = os.getenv("CONFIG_FILE") or Path(__file__).parent / "config.toml"
         file = Path(file) if isinstance(file, str) else file
 
-        if not file.exists():
-            raise FileNotFoundError("配置文件路径未知")
         try:
             with open(file, "rb") as f:
                 self.configs: dict[str, Any] = tomllib.load(f)
                 self.configs.update(kwargs)
-            logger.success("Configfile loaded successfully!")
+            logger.success("Config loaded successfully!")
+        except FileNotFoundError:
+            logger.error("配置文件路径未知")
+            raise
         except tomllib.TOMLDecodeError as e:
             logger.error(f"Failed to load config file: {e}")
             raise
@@ -244,7 +240,7 @@ class ConfigManage:
             logger.error(f"Unexpected error while loading config file: {e}")
             raise
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
         return self.configs.get(key, default)
 
     def update(self, new_configs: dict[str, Any]):
@@ -252,11 +248,13 @@ class ConfigManage:
         logger.success("Config updated successfully!")
 
     @classmethod
-    def get_config(cls, config: type[C], name: str = None) -> C:
+    def get_config(cls, config: type[C], names: Optional[list[str]] = None) -> C:
         """从全局配置获取当前插件需要的配置项"""
-        if name:
-            return TypeAdapter(config).validate_python(cls().configs[name])
-        return TypeAdapter(config).validate_python(cls().configs)
+        _config = cls().configs
+        if names:
+            for name in names:
+                _config = _config[name]
+        return TypeAdapter(config).validate_python(_config)
 
     @classmethod
     def get_all_config(cls) -> dict[str, Any]:

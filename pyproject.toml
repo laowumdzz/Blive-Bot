@@ -16,6 +16,8 @@ dependencies = [
     "sqlalchemy>=2.0.41",
     "asyncpg>=0.30.0",
     "asyncio>=3.4.3",
+    "protobuf>=6.31.1",
+    "apscheduler>=3.11.0",
 ]
 
 [[tool.uv.index]]

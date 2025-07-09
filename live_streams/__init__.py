@@ -303,7 +303,7 @@ class BLiveClient:
             data: dict = await response.json()
         match data["code"]:
             case 0:
-                logger.success(f"成功发送消息: {data['msg'] if data.get('msg') else message}")
+                logger.success(f"[{self.room_id}] | 成功发送消息: {data['msg'] if data.get('msg') else message}")
             case -101:
                 logger.warning("账号未登录")
             case -111:
