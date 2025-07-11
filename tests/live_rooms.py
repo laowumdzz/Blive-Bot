@@ -5,12 +5,14 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Any
 
 import aiohttp
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 
 load_dotenv()
+scheduler = AsyncIOScheduler()
 
 
 def convert_str_to_list(str_list) -> list[int] | None:
@@ -23,14 +25,15 @@ def convert_str_to_list(str_list) -> list[int] | None:
         return None
 
 
-TEMP_PATH = Path(os.getenv("TEMP_PATH"))
+temp_path_str = os.getenv("TEMP_PATH", None)
+TEMP_PATH = Path(temp_path_str) if temp_path_str else Path.cwd()
 
 status_url = 'https://api.live.bilibili.com/room/v1/Room/getRoomInfoOld?mid={}'
 user_card = 'https://api.bilibili.com/x/web-interface/card?mid={}'
 uid = convert_str_to_list(os.getenv('LIVE_ROOM_MID'))
 if not uid:
-    raise RuntimeError('没有指定MID')
-room_status_urls = [status_url.format(x) for x in uid]
+    raise RuntimeError('没有指定UID')
+status_urls = {status_url.format(x) for x in uid}
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -41,28 +44,20 @@ headers = {
 
 def qqyx(subject: str, message: str) -> None:
     email_addr = 'menboid@qq.com'
-    email_pass = 'zxkcqcnuanrachdd'
+    email_pwd = 'zxkcqcnuanrachdd'
 
-    if not email_addr or not email_pass:
+    if not email_addr or not email_pwd:
         raise ValueError("邮箱地址和密码不能为空")
-    if not message:
-        raise ValueError("邮件内容不能为空")
-
-    context = ssl.create_default_context()
-    sender = email_addr
-    receiver = email_addr
-    subject = subject
-    body = message
 
     msg = EmailMessage()
     msg['subject'] = subject
-    msg['From'] = sender
-    msg['To'] = receiver
-    msg.set_content(body)
+    msg['From'] = email_addr
+    msg['To'] = email_addr
+    msg.set_content(message)
 
     try:
-        with smtplib.SMTP_SSL("smtp.qq.com", 465, context=context) as smtp:
-            smtp.login(email_addr, email_pass)
+        with smtplib.SMTP_SSL("smtp.qq.com", 465, context=ssl.create_default_context()) as smtp:
+            smtp.login(email_addr, email_pwd)
             smtp.send_message(msg)
         print("邮件发送成功")
     except smtplib.SMTPResponseException as e:
@@ -73,42 +68,41 @@ def qqyx(subject: str, message: str) -> None:
         print(f"发送邮件时发生未知错误：{e}")
 
 
-async def fetch(session, url):
-    async with session.get(url, headers=headers) as response:
+async def fetch(session, url) -> dict[str, Any]:
+    async with session.get(url) as response:
         return await response.json()
 
 
-async def fetch_all(urls, loop):
-    async with aiohttp.ClientSession(loop=loop) as session:
-        results = await asyncio.gather(*[fetch(session, url) for url in urls], return_exceptions=True)
-        return results
-
-
-async def get_live_room_status():
-    loop = asyncio.get_event_loop()
-    results = await fetch_all(room_status_urls, loop)
-    for mid, info in zip(uid, results):
-        path = TEMP_PATH / str(mid)
-        async with aiohttp.ClientSession() as session:
-            user_name = (await fetch(session, user_card.format(mid)))["data"]["card"]["name"]
-        print(f"{[user_name]}{'已开播' if path.exists() else '未开播'}")
-        if info['data']['liveStatus'] and not path.exists():
-            qqyx("开播提醒", f"[{user_name}]已开播")
-            path.touch()
-        if not info['data']['liveStatus'] and path.exists():
-            os.remove(path)
-            qqyx('下播提醒', f'[{user_name}]已下播')
+@scheduler.scheduled_job('interval', seconds=6, misfire_grace_time=10, max_instances=2)
+async def get_live_status():
+    print("-" * 20)
+    try:
+        async with aiohttp.ClientSession(headers=headers) as session:
+            results = await asyncio.gather(*(fetch(session, url) for url in status_urls), return_exceptions=True)
+            for mid, info in zip(uid, results):
+                if isinstance(info, dict):
+                    path = TEMP_PATH / str(mid)
+                    user_name = (await fetch(session, user_card.format(mid)))["data"]["card"]["name"]
+                    print(f"[{user_name}]{'已开播' if path.exists() else '未开播'}")
+                    if info['data']['liveStatus'] and not path.exists():
+                        qqyx("开播提醒", f"[{user_name}]已开播")
+                        path.touch()
+                    if not info['data']['liveStatus'] and path.exists():
+                        qqyx('下播提醒', f'[{user_name}]已下播')
+                        path.unlink(missing_ok=True)
+                else:
+                    print(f"[{mid}]获取状态出错 e:{info}")
+    except asyncio.CancelledError:
+        pass
 
 
 async def main():
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(get_live_room_status, 'interval', seconds=5)
-    scheduler.start()
-    await asyncio.Event().wait()
+    try:
+        scheduler.start()
+        await asyncio.Event().wait()
+    except asyncio.CancelledError:
+        pass
 
 
 if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, asyncio.CancelledError):
-        pass
+    asyncio.run(main())
