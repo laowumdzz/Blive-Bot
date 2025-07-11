@@ -2,49 +2,30 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 from loguru import logger
 
 load_dotenv(verbose=True)
 
-from utils.tools import ConfigManage
-from live_streams.config import Config
-from live_streams import BLiveClient, models, Handler
+from live_streams import *
+from utils import convert_str_to_list
 
 MUSIC_KEYWORDS = {"点歌", "来一首", "来首", "放首", "点一首"}
 room_task: dict[int, BLiveClient]
 count: dict[str, int] = {
     "WatchNum": 0,
     "InteractWord": 0,
-    "Danmaku": 5,
+    "Danmaku": 0,
+    "Share": 0,
 }
-client: BLiveClient
-
-
-def match_keyword(input_string: str, keywords) -> Optional[str]:
-    """
-    匹配输入字符串中的第一个关键字(来自关键字数组)
-    :param input_string: 要搜索的字符串
-    :param keywords: 关键字列表
-    :return: 匹配到的第一个关键字后的内容(不带后面的空格)，如果没有匹配则返回None
-    """
-    for keyword in keywords:
-        start = input_string.find(keyword)
-        if start != -1:
-            end = start + len(keyword)
-            if end < len(input_string):
-                return input_string[end:].strip()
-    return None
 
 
 @Handler.append_func(models.DanmakuMessage)
-async def _(model: models.DanmakuMessage):
-    music_match = match_keyword(model.msg, MUSIC_KEYWORDS)
-    print(
-        f"[{model.room_id}] | {model.uname}: {model.msg} | 匹配: {music_match} | 等级: {model.user_level} | 舰队类型: {model.privilege_type}")
+async def _(model: models.DanmakuMessage):  # TODO: 使用arclet-alconna代替匹配关键字
     count["Danmaku"] += 1
+    print(
+        f"[{model.room_id}] | {model.uname}: {model.msg} | 等级: {model.user_level} | 舰队类型: {model.privilege_type}")
 
 
 @Handler.append_func(models.GiftMessage)
@@ -91,6 +72,7 @@ async def _(model: models.InteractWordMessage | models.InteractWordV2Message):
         case 2:
             type_str = "关注直播间"
         case 3:
+            count["Share"] += 1
             type_str = "分享直播间"
         case _:
             count["InteractWord"] += 1
@@ -100,11 +82,12 @@ async def _(model: models.InteractWordMessage | models.InteractWordV2Message):
 
 
 async def main():
-    global client
-    # room_task = {rid: BLiveClient(room_id=rid) for rid in config.live_room_id}
+    global room_task
+    room_ids = convert_str_to_list(os.getenv("LIVE_ROOM_ID"))
+    room_task = {room_id: BLiveClient(room_id=room_id) for room_id in room_ids}
     try:
-        client = BLiveClient(room_id=config.live_room_id.pop())
-        await client.start()
+        for client in room_task.values():
+            await client.start()
         await asyncio.Event().wait()
     except asyncio.CancelledError:
         logger.info("正在关闭程序")
@@ -113,7 +96,11 @@ async def main():
 if __name__ == '__main__':
     log_path = Path(os.getenv('LOG_PATH') or Path.cwd())
     logger.remove()
-    logger.add(log_path / f"{os.path.basename(__file__).split('.')[0]}.log", level="DEBUG")
-    logger.add(sys.stdout, level="INFO")
-    config = ConfigManage.get_config(Config)
+    logger.add(
+        log_path / f"{os.path.basename(__file__).split('.')[0]}.log",
+        level="DEBUG",
+        enqueue=True,
+        rotation="00:00",
+    )
+    logger.add(sys.stdout, level="INFO", enqueue=True)
     asyncio.run(main())
