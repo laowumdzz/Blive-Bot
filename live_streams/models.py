@@ -3,7 +3,6 @@ import abc
 import base64
 import dataclasses
 import json
-from typing import NamedTuple
 
 import utils.InteractWordV2 as InteractWordV2
 
@@ -12,7 +11,6 @@ __all__ = (
     "GeneralMessage",
     "GiftMessage",
     "GuardBuyMessage",
-    "HeaderTuple",
     "MessageInterface",
     "SuperChatDeleteMessage",
     "SuperChatMessage",
@@ -24,37 +22,6 @@ __all__ = (
     "InteractWordMessage",
     "InteractWordV2Message",
 )
-
-
-class HeaderTuple(NamedTuple):
-    pack_len: int
-    """整个消息的长度"""
-
-    raw_header_size: int
-    """原始消息头的长度"""
-
-    ver: int
-    """
-    ========协议版本========
-    数据包协议版本        含义
-    0                  数据包有效负载为未压缩的JSON格式数据
-    1                  客户端心跳包，或服务器心跳回应(带有人气值)
-    3                  数据包有效负载为通过br压缩后的JSON格式数据(之前是zlib)
-    """
-
-    operation: int
-    """
-    ==================操作类型==================
-    数据包类型    发送方      名称             含义
-    2           Client     心跳             不发送心跳包，50-60秒后服务器会强制断开连接
-    3           Server     心跳回应          有效负载为直播间人气值
-    5           Server     通知             有效负载为礼物、弹幕、公告等内容数据
-    7           Client     认证(加入房间)     客户端成功建立连接后发送的第一个数据包
-    8           Server     认证成功回应       服务器接受认证包后回应的第一个数据包
-    """
-
-    seq_id: int
-    """序列ID"""
 
 
 class MessageInterface(abc.ABC):
@@ -558,7 +525,7 @@ class UserToastMessage(MessageInterface):
 
 
 @dataclasses.dataclass
-class InteractWordMessage(MessageInterface):  # TODO: 更换新命令INTERACT_WORD_V2
+class InteractWordMessage(MessageInterface):
     """
     入场消息
     """
@@ -609,19 +576,3 @@ class InteractWordV2Message(MessageInterface):
             msg_type=pb.msg_type,
             face='fyex6922'
         )
-
-
-# TODO: 替换掉手动添加类变量方式
-DanmakuMessage._func = []
-GeneralMessage._func = []
-WatchedChangeMessage._func = []
-LoginNoticeMessage._func = []
-GiftMessage._func = []
-GuardBuyMessage._func = []
-SuperChatMessage._func = []
-SuperChatDeleteMessage._func = []
-LikeClickMessage._func = []
-LikeUpdateMessage._func = []
-UserToastMessage._func = []
-InteractWordMessage._func = []
-InteractWordV2Message._func = []
