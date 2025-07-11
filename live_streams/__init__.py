@@ -5,7 +5,7 @@ import os
 import struct
 import time
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional, Any, NamedTuple
 
 import aiofiles
 import aiohttp
@@ -13,24 +13,60 @@ import brotli
 import websockets
 from loguru import logger
 
-from utils.tools import Signedparams, TEMP_PATH
+from utils import Signedparams, TEMP_PATH, ConfigManage
+from . import models
 from .config import Config
 from .enum import Operation, ProtoVer, AuthReplyCode
 from .exception import AuthError
 from .handler import Handler
-from .models import HeaderTuple
 
-GetRoomPlayInfo = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id={}&protocol=0&platform=web"
+__all__ = (
+    "Handler",
+    "BLiveClient",
+    "models",
+)
+
+HEADER_STRUCT = struct.Struct('>I2H2I')
+GetRoomStatus = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id={}"
+
+
+class HeaderTuple(NamedTuple):
+    pack_len: int
+    """整个消息的长度"""
+
+    raw_header_size: int
+    """原始消息头的长度"""
+
+    ver: int
+    """
+    ========协议版本========
+    数据包协议版本        含义
+    0                  数据包有效负载为未压缩的JSON格式数据
+    1                  客户端心跳包，或服务器心跳回应(带有人气值)
+    3                  数据包有效负载为通过br压缩后的JSON格式数据(之前是zlib)
+    """
+
+    operation: int
+    """
+    ==================操作类型==================
+    数据包类型    发送方      名称             含义
+    2           Client     心跳             不发送心跳包，50-60秒后服务器会强制断开连接
+    3           Server     心跳回应          有效负载为直播间人气值
+    5           Server     通知             有效负载为礼物、弹幕、公告等内容数据
+    7           Client     认证(加入房间)     客户端成功建立连接后发送的第一个数据包
+    8           Server     认证成功回应       服务器接受认证包后回应的第一个数据包
+    """
+
+    seq_id: int
+    """序列ID"""
 
 
 class BLiveClient:
-    HEADER_STRUCT = struct.Struct('>I2H2I')
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
         "Referer": "https://www.bilibili.com/",
         "Origin": "http://www.bilibili.com",
-        "Cookie": os.getenv("COOKIE")
     }
 
     def __init__(
@@ -40,20 +76,24 @@ class BLiveClient:
             session_: aiohttp.ClientSession = None,
             handler_: Handler = Handler(),
     ):
-        self.room_id = room_id
-        self.user_id = user_id
         if not (room_id or user_id):
             raise KeyError("not found room_id or user_id")
+        self._config = ConfigManage.get_config(Config)
+        if self._config.use_cookie_login:
+            self.headers["Cookie"] = os.getenv("COOKIE")
+        self.room_id = room_id
+        self.user_id = user_id
         self._msg_hander: Handler = handler_
-        self.own_session = False
+        self._own_session = False
         if not session_:
-            self.own_session = True
+            self._own_session = True
             session_ = aiohttp.ClientSession(headers=self.headers)
         self._session: Optional[aiohttp.ClientSession] = session_
         self._ws: Optional[websockets.ClientConnection] = None
         self._Heartbeat_Task: Optional[asyncio.Task] = None
         self._Main_Task: Optional[asyncio.Task] = None
-        self.status: bool = False
+        self.program_status: bool = False
+        self.live_status: bool = False
 
     async def get_uri_port(self) -> Optional[tuple[set[str], bytes]]:
         """
@@ -84,15 +124,17 @@ class BLiveClient:
             return uris, json.dumps(auth).encode()
 
     async def start(self):
+        """启动WebSocket连接并处理消息循环"""
         if not self.room_id:
             await self.get_room_id()  # 3546612229998826
         params = await self.get_uri_port()
 
         async def run():
             try:
-                self.status = True
+                self.program_status = True
                 async with websockets.connect(params[0].pop()) as self._ws:
                     await self.on_open(params[1])
+                    logger.info("开启直播监听")
                     while True:
                         response = await self._ws.recv()
                         await asyncio.create_task(self._on_message(response))
@@ -116,7 +158,7 @@ class BLiveClient:
 
         if params:
             self._Main_Task = asyncio.create_task(run())
-            self.status = True
+            self.program_status = True
 
     async def _send_packet(self, packet_type: int, payload: bytes):
         """
@@ -140,7 +182,7 @@ class BLiveClient:
 
     async def on_open(self, encode_auth: bytes):
         """建立连接后发送认证包和心跳包"""
-        logger.info("发送认证包")
+        logger.debug("发送认证包")
         await self._send_packet(7, encode_auth)
 
         async def run():
@@ -161,7 +203,7 @@ class BLiveClient:
         """
         offset = 0
         body: bytes
-        header = HeaderTuple(*self.HEADER_STRUCT.unpack_from(payload))
+        header = HeaderTuple(*HEADER_STRUCT.unpack_from(payload))
         try:
             match header.operation:
                 case Operation.SEND_MSG_REPLY:
@@ -171,8 +213,7 @@ class BLiveClient:
                         offset += header.pack_len
                         if offset >= len(payload):
                             break
-                        header = HeaderTuple(*self.HEADER_STRUCT.unpack_from(payload, offset))
-                        logger.debug(f"当前偏移量:{offset}")
+                        header = HeaderTuple(*HEADER_STRUCT.unpack_from(payload, offset))
                 case Operation.HEARTBEAT_REPLY:
                     message = payload[offset + header.raw_header_size:]
                     logger.debug(f"心跳回应: {[int.from_bytes(message[i:i + 4]) for i in range(0, len(message), 4)]}")
@@ -180,8 +221,9 @@ class BLiveClient:
                     message = payload[offset + header.raw_header_size:]
                     decode_body = json.loads(message.decode())
                     if decode_body['code'] != AuthReplyCode.OK:
+                        logger.error(f"认证失败 | code:{decode_body['code']}")
                         raise AuthError(f"auth reply error, code={decode_body['code']}, body={decode_body}")
-                    logger.info(f"认证回应: {decode_body}")
+                    logger.debug(f"认证回应: {decode_body}")
         except struct.error:
             logger.error(f'[{self.room_id}] parsing header failed offset={offset} payload={payload}')
 
@@ -189,36 +231,36 @@ class BLiveClient:
         decode_body: dict
         match header.ver:
             case ProtoVer.BROTLI:
-                logger.debug("正文已被压缩,正在解压")
                 await self._on_message(
                     await asyncio.to_thread(brotli.decompress, payload))
             case ProtoVer.NORMAL:
                 if len(payload) != 0:
                     decode_body = json.loads(payload.decode())
                     await self._msg_hander.handle(self.room_id, decode_body)
+                    if self._config.save_history_method == 2:
+                        await asyncio.create_task(self._write_file(decode_body))
 
     async def _write_file(self, data: dict) -> bool:
         if not isinstance(data, dict):
             raise TypeError("data must be a dict")
         file_path = TEMP_PATH / "bililive" / f"{self.room_id}.json"
-        data["time_now"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data["add_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
-            file_exists = file_path.exists()
-            async with aiofiles.open(file_path, "a+" if file_exists else "w", encoding="utf-8") as file:
-                if file_exists:
+            if file_path.exists():
+                async with aiofiles.open(file_path, 'r+', encoding='utf-8') as file:
+                    content = await file.read()
+                    data = json.loads(content) if content else []
+                    data.append(data)
                     await file.seek(0)
-                    last_char = await file.read(-1)
-                    if last_char == "]":
-                        await file.write(",\n" + json.dumps(data, ensure_ascii=False, indent=4))
-                    else:
-                        await file.seek(0)
-                        await file.truncate()
-                        await file.write(json.dumps([data], ensure_ascii=False, indent=4))
-                else:
+                    await file.truncate()
+                    await file.write(json.dumps(data, ensure_ascii=False, indent=4))
+            else:
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                async with aiofiles.open(file_path, 'w', encoding='utf-8') as file:
                     await file.write(json.dumps([data], ensure_ascii=False, indent=4))
             return True
         except Exception as e:
-            logger.error(f"文件写入错误: {e}")
+            print(f"文件写入错误，日志: {e}")
             return False
 
     async def get_room_id(self):
@@ -255,28 +297,30 @@ class BLiveClient:
             except asyncio.CancelledError:
                 pass
             self._Main_Task = None
-        self.status = False
+        self.program_status = False
 
     async def close(self):
-        if self._session and self.own_session:
+        if self._session and self._own_session:
             await self._session.close()
             self._session = None
 
-    async def auto_room_monitor(self):
+    async def live_room_monitor(self):
         try:
-            async with self._session.get(GetRoomPlayInfo.format(self.room_id)) as response:
-                response.raise_for_status()
-                data = (await response.json())["data"]
-            if data["live_status"] and not self.status:
-                logger.info(f"[{self.room_id}] | 直播开始,启动监听")
-                await self.start()
-            if not data["live_status"] and self.status:
-                logger.info(f"[{self.room_id}] | 直播结束,关闭监听")
-                await self.stop()
+            while True:
+                async with self._session.get(GetRoomStatus.format(self.room_id)) as response:
+                    response.raise_for_status()
+                    data = (await response.json())["data"]
+                if data["live_status"] and not self.live_status:
+                    logger.info(f"[{self.room_id}] | 直播开始")
+                    self.live_status = True
+                if not data["live_status"] and self.live_status:
+                    logger.info(f"[{self.room_id}] | 直播结束")
+                    self.live_status = False
+                await asyncio.sleep(5)
         except asyncio.CancelledError:
-            logger.info("结束自动启停监控")
+            logger.info("结束直播间状态监测")
         except Exception as e:
-            logger.error(f"检测直播间状态失败: {e}")
+            logger.error(f"直播间状态监测失败,停止监测: {e}")
 
     async def send_msg(self, message: str, reply_mid: int = 0, reply_uname: str = ""):
         """
@@ -331,11 +375,6 @@ class BLiveClient:
         except KeyError:
             logger.warning("获取登录用户UID失败,使用游客登录")
             return 0
-
-    async def loop_room_monitor(self):
-        while True:
-            await self.auto_room_monitor()
-            await asyncio.sleep(30)
 
     async def __aenter__(self):
         return self

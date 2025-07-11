@@ -33,6 +33,8 @@ IGNORED_CMDS = {
     'WIDGET_BANNER',
     "RANK_CHANGED_V2",
     "ONLINE_RANK_V3",
+    "COMMON_NOTICE_DANMAKU",
+    "PK_BATTLE_PUNISH_END",
 }
 """常见可忽略的cmd"""
 
@@ -116,6 +118,8 @@ class Handler:
     def append_func(cls, *msg_types: _msg_type):
         def decorator(func):
             for msg_type in msg_types:
+                if getattr(msg_type, "_func", None) is None:
+                    msg_type._func = []
                 msg_type._func.append(func)
 
         return decorator
