@@ -2,18 +2,12 @@ from pydantic import BaseModel
 
 
 class Config(BaseModel):
-    live_room_id: list[int] = None
-    """需要监听的直播间ID"""
-    use_login: bool = False
+    use_cookie_login: bool = False
     """是否使用Cookie登录"""
+    save_history_method: int = 0
+    """保存直播消息方式,0为不保存/1为数据库JSON保存/2为本地JSON文件保存"""
     data_analysis: bool = False
     """是否启用数据分析,未启用消息存储时只能分析单场直播"""
-    live_room_history_save: bool = False
-    """是否启用消息存储,可以分析长期数据"""
-    save_history_analysis: bool = False
-    """保存以往分析结果,使长期数据分析更准确"""
-    save_data_method: int = 0
-    """保存消息方式,0为数据库保存,1为本地JSON文件保存"""
     cookie: str = None
     """COOKIE"""
 

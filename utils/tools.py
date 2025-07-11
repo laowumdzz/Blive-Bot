@@ -8,6 +8,7 @@ import threading
 import time
 import tomllib
 import urllib.parse
+from ast import literal_eval
 from functools import reduce
 from hashlib import md5
 from pathlib import Path
@@ -68,7 +69,6 @@ class Signedparams:
                       "Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
         "Referer": "https://www.bilibili.com/",
         "Origin": "http://www.bilibili.com",
-        "Cookie": os.getenv("COOKIE")
     }
     _session: Optional[aiohttp.ClientSession] = None
 
@@ -78,7 +78,8 @@ class Signedparams:
             mid: Optional[int] = None,
             params: Optional[dict[str, Any]] = None,
             compulsion: bool = False,
-            use_webid: bool = False
+            use_webid: bool = False,
+            use_cookie: bool = False,
     ) -> dict:
         """
         获取最后的结果
@@ -86,19 +87,22 @@ class Signedparams:
         :param params: 自定义参数, 不输入则使用默认自带参数
         :param compulsion: 是否强制刷新数据库缓存
         :param use_webid: 是否使用w_webid,能不用就不用,如果过不了鉴权就可以启用
+        :param use_cookie: 是否使用Cookie获取WBI,为True从系统环境变量获取COOKIE
         :return: 加密完成后的dict[params]
         """
         if not (mid or params):
-            logger.error("No params or No mid")
-            raise ValueError("params和mid必填其中之一")
+            logger.error("Missing required parameter: either 'mid' or 'params' must be provided")
+            raise KeyError("params和mid必填其中之一")
+        if use_cookie:
+            if cookie := os.getenv("COOKIE", None):
+                cls.headers["Cookie"] = cookie
+            else:
+                logger.warning("未找到Cookie")
         default_params = {
             "mid": mid,
             "web_location": "444.8"
         }
         cls._read_data()
-        if not cls.headers.get("Cookie"):
-            logger.error("No Cookie")
-            raise KeyError("没有Cookie")
         if not cls._session:
             cls._session = aiohttp.ClientSession(headers=cls.headers)
         if use_webid:
@@ -202,10 +206,10 @@ class Signedparams:
                 with open(WBI_TEMP_FILE, "rb") as f:
                     cls.Data = pickle.load(f)
                     logger.debug("缓存数据加载成功")
-                    logger.debug(str({"WbiKeys_update_count": cls.Data.WbiKeys_update_count,
-                                      "WbiKeys_get_count": cls.Data.WbiKeys_get_count,
-                                      "access_id_update_count": cls.Data.access_id_update_count,
-                                      "access_id_get_count": cls.Data.access_id_get_count}))
+                    logger.debug(str({"Wbi更新次数": cls.Data.WbiKeys_update_count,
+                                      "Wbi获取缓存次数": cls.Data.WbiKeys_get_count,
+                                      "AccessId更新次数": cls.Data.access_id_update_count,
+                                      "AccessId获取缓存次数": cls.Data.access_id_get_count}))
             except (pickle.PickleError, EOFError) as e:
                 logger.error(f"缓存数据损坏: {e}")
 
@@ -218,25 +222,21 @@ class ConfigManage:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                cls._instance._initialized = False
             return cls._instance
 
     def __init__(self, file: Union[str, Path] = None, **kwargs):
-        if self._initialized:
-            return
-        self._initialized = True
-
         if file is None:
             file = os.getenv("CONFIG_FILE") or Path(__file__).parent / "config.toml"
         file = Path(file) if isinstance(file, str) else file
 
-        if not file.exists():
-            raise FileNotFoundError("配置文件路径未知")
         try:
             with open(file, "rb") as f:
                 self.configs: dict[str, Any] = tomllib.load(f)
                 self.configs.update(kwargs)
-            logger.success("Configfile loaded successfully!")
+            logger.success("Config loaded successfully!")
+        except FileNotFoundError:
+            logger.error("配置文件路径未知")
+            raise
         except tomllib.TOMLDecodeError as e:
             logger.error(f"Failed to load config file: {e}")
             raise
@@ -244,7 +244,7 @@ class ConfigManage:
             logger.error(f"Unexpected error while loading config file: {e}")
             raise
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
         return self.configs.get(key, default)
 
     def update(self, new_configs: dict[str, Any]):
@@ -252,13 +252,30 @@ class ConfigManage:
         logger.success("Config updated successfully!")
 
     @classmethod
-    def get_config(cls, config: type[C], name: str = None) -> C:
+    def get_config(cls, config: type[C], names: Optional[list[str]] = None) -> C:
         """从全局配置获取当前插件需要的配置项"""
-        if name:
-            return TypeAdapter(config).validate_python(cls().configs[name])
-        return TypeAdapter(config).validate_python(cls().configs)
+        _config = cls().configs
+        if names:
+            for name in names:
+                _config = _config[name]
+        return TypeAdapter(config).validate_python(_config)
 
     @classmethod
     def get_all_config(cls) -> dict[str, Any]:
         """获取包含所有配置的字典"""
         return cls().configs
+
+
+def convert_str_to_list(str_list: str) -> list[int] | None:
+    """
+    将字符串类型列表安全转换成Python对象
+    :param str_list: 字符串列表,如'[1, 2, 3]'
+    :return: Python列表对象
+    """
+    try:
+        result = literal_eval(str_list)
+        if isinstance(result, list):
+            return result
+        return None
+    except (ValueError, SyntaxError):
+        return None

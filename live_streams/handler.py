@@ -32,6 +32,9 @@ IGNORED_CMDS = {
     'SUPER_CHAT_MESSAGE_JPN',
     'WIDGET_BANNER',
     "RANK_CHANGED_V2",
+    "ONLINE_RANK_V3",
+    "COMMON_NOTICE_DANMAKU",
+    "PK_BATTLE_PUNISH_END",
 }
 """常见可忽略的cmd"""
 
@@ -47,6 +50,7 @@ _msg_type = Union[
     type[LikeClickMessage],
     type[LikeUpdateMessage],
     type[InteractWordMessage],
+    type[InteractWordV2Message],
 ]
 logged_unknown_cmds = set()
 
@@ -72,6 +76,7 @@ class Handler:
         "SUPER_CHAT_MESSAGE_DELETE": SuperChatDeleteMessage,
         # 入场消息
         "INTERACT_WORD": InteractWordMessage,
+        "INTERACT_WORD_V2": InteractWordV2Message,
         # 日志消息
         "LOG_IN_NOTICE": LoginNoticeMessage,
         # 观看人数
@@ -110,8 +115,11 @@ class Handler:
             print(f"未解析CMD:{cmd}")
 
     @classmethod
-    def append_func(cls, msg_type: _msg_type):
+    def append_func(cls, *msg_types: _msg_type):
         def decorator(func):
-            msg_type._func.append(func)
+            for msg_type in msg_types:
+                if getattr(msg_type, "_func", None) is None:
+                    msg_type._func = []
+                msg_type._func.append(func)
 
         return decorator
