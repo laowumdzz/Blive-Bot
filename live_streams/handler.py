@@ -1,6 +1,7 @@
 """消息解析模块"""
 import asyncio
 from typing import Optional, Union
+from loguru import logger
 
 from .models import *
 
@@ -102,17 +103,20 @@ class Handler:
             cmd = cmd[:pos]
 
         model_type = cls._CMD_MODEL_DICT.get(cmd)
-        if model_type is not None:
+        if model_type is not None and getattr(model_type, "_func", False):
+            logger.debug(f"running function {type[model_type]}")
             model = model_type.from_command(message)
             model.room_id = room_id
             await asyncio.gather(*(fun(model) for fun in model._func))
 
         if cmd not in cls._CMD_MODEL_DICT:
-            # 只有第一次遇到未知cmd时打日志
+            # 只有第一次遇到未知cmd时打日志, 第二次使用通用消息模板解析
             if cmd not in logged_unknown_cmds:
                 logged_unknown_cmds.add(cmd)
-                print(f"[{room_id}] | 未知CMD:{cmd} | 原始消息:{message}")
-            print(f"未解析CMD:{cmd}")
+                print(f"[{room_id}] | 遇见未知CMD:{cmd} | 原始消息:{message}")
+            else:
+                cls._CMD_MODEL_DICT[cmd] = GeneralMessage
+                print(f"[{room_id}] | 未解析CMD:{cmd} | 使用通用消息模板解析")
 
     @classmethod
     def append_func(cls, *msg_types: _msg_type):
