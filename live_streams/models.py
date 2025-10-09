@@ -1,10 +1,10 @@
 """消息模板"""
 import abc
 import base64
-import dataclasses
 import json
 
 import utils.InteractWordV2 as InteractWordV2
+from pydantic import BaseModel
 
 __all__ = (
     "DanmakuMessage",
@@ -24,7 +24,7 @@ __all__ = (
 )
 
 
-class MessageInterface(abc.ABC):
+class MessageInterface(abc.ABC, BaseModel):
     room_id: int = None
 
     @classmethod
@@ -33,7 +33,6 @@ class MessageInterface(abc.ABC):
         raise NotImplementedError("from_command")
 
 
-@dataclasses.dataclass
 class GeneralMessage(MessageInterface):
     """
     通用消息
@@ -48,7 +47,6 @@ class GeneralMessage(MessageInterface):
         return cls(raw_message=data)
 
 
-@dataclasses.dataclass
 class LoginNoticeMessage(MessageInterface):
     """
     未登录提示日志
@@ -63,7 +61,6 @@ class LoginNoticeMessage(MessageInterface):
         return cls(message=data["notice_msg"])
 
 
-@dataclasses.dataclass
 class WatchedChangeMessage(MessageInterface):
     """
     观看人数
@@ -86,7 +83,6 @@ class WatchedChangeMessage(MessageInterface):
         )
 
 
-@dataclasses.dataclass
 class DanmakuMessage(MessageInterface):
     """
     弹幕消息
@@ -251,7 +247,6 @@ class DanmakuMessage(MessageInterface):
             return {}
 
 
-@dataclasses.dataclass
 class GiftMessage(MessageInterface):
     """
     礼物消息
@@ -310,7 +305,6 @@ class GiftMessage(MessageInterface):
         )
 
 
-@dataclasses.dataclass
 class GuardBuyMessage(MessageInterface):
     """
     上舰消息
@@ -351,7 +345,6 @@ class GuardBuyMessage(MessageInterface):
         )
 
 
-@dataclasses.dataclass
 class SuperChatMessage(MessageInterface):
     """
     醒目留言消息
@@ -422,7 +415,6 @@ class SuperChatMessage(MessageInterface):
         )
 
 
-@dataclasses.dataclass
 class SuperChatDeleteMessage(MessageInterface):
     """
     删除醒目留言消息
@@ -437,7 +429,6 @@ class SuperChatDeleteMessage(MessageInterface):
         return cls(ids=data["ids"])
 
 
-@dataclasses.dataclass
 class LikeClickMessage(MessageInterface):
     """
     用户点赞事件
@@ -462,7 +453,6 @@ class LikeClickMessage(MessageInterface):
         )
 
 
-@dataclasses.dataclass
 class LikeUpdateMessage(MessageInterface):
     """
     点赞数量更新
@@ -476,7 +466,6 @@ class LikeUpdateMessage(MessageInterface):
         return cls(click_count=data["click_count"])
 
 
-@dataclasses.dataclass
 class UserToastMessage(MessageInterface):
     """
     用户庆祝消息
@@ -524,7 +513,6 @@ class UserToastMessage(MessageInterface):
         )
 
 
-@dataclasses.dataclass
 class InteractWordMessage(MessageInterface):
     """
     入场消息
@@ -550,7 +538,6 @@ class InteractWordMessage(MessageInterface):
         )
 
 
-@dataclasses.dataclass
 class InteractWordV2Message(MessageInterface):
     """
     入场消息V2
