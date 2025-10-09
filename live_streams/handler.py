@@ -1,6 +1,6 @@
 """消息解析模块"""
 import asyncio
-from typing import Optional, Union
+from typing import Literal
 
 from .models import *
 
@@ -38,21 +38,35 @@ IGNORED_CMDS = {
 }
 """常见可忽略的cmd"""
 
-_msg_type = Union[
-    type[DanmakuMessage],
-    type[GeneralMessage],
-    type[GiftMessage],
-    type[GuardBuyMessage],
-    type[SuperChatMessage],
-    type[SuperChatDeleteMessage],
-    type[LoginNoticeMessage],
-    type[WatchedChangeMessage],
-    type[LikeClickMessage],
-    type[LikeUpdateMessage],
-    type[InteractWordMessage],
-    type[InteractWordV2Message],
+_msg_type = Literal[
+    "DanmakuMessage",
+    "GeneralMessage",
+    "GiftMessage",
+    "GuardBuyMessage",
+    "SuperChatMessage",
+    "SuperChatDeleteMessage",
+    "LoginNoticeMessage",
+    "WatchedChangeMessage",
+    "LikeClickMessage",
+    "LikeUpdateMessage",
+    "InteractWordMessage",
+    "InteractWordV2Message"
 ]
 logged_unknown_cmds = set()
+_func = {
+    "DanmakuMessage": set(),
+    "GeneralMessage": set(),
+    "GiftMessage": set(),
+    "GuardBuyMessage": set(),
+    "SuperChatMessage": set(),
+    "SuperChatDeleteMessage": set(),
+    "LoginNoticeMessage": set(),
+    "WatchedChangeMessage": set(),
+    "LikeClickMessage": set(),
+    "LikeUpdateMessage": set(),
+    "InteractWordMessage": set(),
+    "InteractWordV2Message": set(),
+}
 
 
 class Handler:
@@ -63,7 +77,7 @@ class Handler:
     async def _(model):
     """
 
-    _CMD_MODEL_DICT: dict[str, Optional[_msg_type]] = {
+    _CMD_MODEL_DICT = {
         # 收到弹幕
         "DANMU_MSG": DanmakuMessage,
         # 有人送礼
@@ -105,7 +119,7 @@ class Handler:
         if model_type is not None:
             model = model_type.from_command(message)
             model.room_id = room_id
-            await asyncio.gather(*(fun(model) for fun in model._func))
+            await asyncio.gather(*(fun(model) for fun in _func[model_type.__name__]))
 
         if cmd not in cls._CMD_MODEL_DICT:
             # 只有第一次遇到未知cmd时打日志
@@ -118,8 +132,6 @@ class Handler:
     def append_func(cls, *msg_types: _msg_type):
         def decorator(func):
             for msg_type in msg_types:
-                if getattr(msg_type, "_func", None) is None:
-                    msg_type._func = []
-                msg_type._func.append(func)
+                _func[msg_type].add(func)
 
         return decorator
