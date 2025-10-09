@@ -21,22 +21,11 @@ from pydantic import BaseModel, TypeAdapter
 C = TypeVar("C", bound=BaseModel)
 T = TypeVar("T")
 
-path = {name: Path(os.getenv(name)) for name in {"LOG_PATH", "DATA_PATH", "TEMP_PATH", "RESOURCE_PATH"}}
-
-LOG_PATH = path["LOG_PATH"]
-"""日志路径"""
-DATA_PATH = path["DATA_PATH"]
-"""数据路径"""
-TEMP_PATH = path["TEMP_PATH"]
+TEMP_PATH = Path(__file__).parent / "temp"
 """临时文件路径"""
-RESOURCE_PATH = path["RESOURCE_PATH"]
-"""资源路径"""
 WBI_TEMP_FILE = TEMP_PATH / "WbiSignature.pkl"
 
-LOG_PATH.mkdir(parents=True, exist_ok=True)
-DATA_PATH.mkdir(parents=True, exist_ok=True)
 TEMP_PATH.mkdir(parents=True, exist_ok=True)
-RESOURCE_PATH.mkdir(parents=True, exist_ok=True)
 
 
 @dataclasses.dataclass
@@ -52,7 +41,7 @@ class SignedKeyData:
     access_id_get_count: int = 0
 
 
-class Signedparams:
+class SignedParams:
     """
     签名类, 调用get_end_result函数即可, 利用序列化库pickle缓存img_key和sub_key和access_id,避免反复获取影响性能
     """
@@ -216,13 +205,11 @@ class Signedparams:
 
 class ConfigManage:
     _instance = None
-    _lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super().__new__(cls)
-            return cls._instance
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self, file: Union[str, Path] = None, **kwargs):
         if file is None:
@@ -254,7 +241,9 @@ class ConfigManage:
     @classmethod
     def get_config(cls, config: type[C], names: Optional[list[str]] = None) -> C:
         """从全局配置获取当前插件需要的配置项"""
-        _config = cls().configs
+        if not getattr(cls, "_instance", None):
+            cls._instance = cls()
+        _config = cls._instance.configs
         if names:
             for name in names:
                 _config = _config[name]
