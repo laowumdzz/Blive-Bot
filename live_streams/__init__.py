@@ -13,7 +13,7 @@ import brotli
 import websockets
 from loguru import logger
 
-from utils import Signedparams, TEMP_PATH, ConfigManage
+from utils import SignedParams, TEMP_PATH, ConfigManage
 from . import models
 from .config import Config
 from .enum import Operation, ProtoVer, AuthReplyCode
@@ -101,8 +101,8 @@ class BLiveClient:
         :return: tuple(set(直播间wss流URIs), 编码后的认证令牌)
         :raise KeyError: 未找到该直播间或已被风控
         """
-        params = await Signedparams.get_end_result(params={"type": 0, "id": self.room_id, "web_location": "444.8"})
-        await Signedparams.close()
+        params = await SignedParams.get_end_result(params={"type": 0, "id": self.room_id, "web_location": "444.8"})
+        await SignedParams.close()
         try:
             async with self._session.get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo",
                                          params=params) as response:
@@ -264,7 +264,7 @@ class BLiveClient:
             return False
 
     async def get_room_id(self):
-        params = await Signedparams.get_end_result(self.user_id)
+        params = await SignedParams.get_end_result(self.user_id)
         async with self._session.get("https://api.bilibili.com/x/space/wbi/acc/info", params=params) as response:
             response.raise_for_status()
             data: dict = (await response.json())["data"]
