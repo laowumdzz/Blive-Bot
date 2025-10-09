@@ -11,7 +11,6 @@ load_dotenv(verbose=True)
 from live_streams import *
 from utils import convert_str_to_list
 
-MUSIC_KEYWORDS = {"点歌", "来一首", "来首", "放首", "点一首"}
 room_task: dict[int, BLiveClient]
 count: dict[str, int] = {
     "WatchNum": 0,
@@ -21,52 +20,52 @@ count: dict[str, int] = {
 }
 
 
-@Handler.append_func(models.DanmakuMessage)
-async def _(model: models.DanmakuMessage):  # TODO: 使用arclet-alconna代替匹配关键字
+@Handler.append_func("DanmakuMessage")
+async def _(model: models.DanmakuMessage):
     count["Danmaku"] += 1
     print(
         f"[{model.room_id}] | {model.uname}: {model.msg} | 等级: {model.user_level} | 舰队类型: {model.privilege_type}")
 
 
-@Handler.append_func(models.GiftMessage)
+@Handler.append_func("GiftMessage")
 async def _(model: models.GiftMessage):
     print(
         f"[{model.room_id}] | {model.uname} 赠送{model.gift_name}x{model.num} | (CNYx{model.total_coin / 1000}元)")
 
 
-@Handler.append_func(models.LikeUpdateMessage)
+@Handler.append_func("LikeUpdateMessage")
 async def _(model: models.LikeUpdateMessage):
     print(f"[{model.room_id}] | 点赞量:{model.click_count}")
 
 
-@Handler.append_func(models.WatchedChangeMessage)
+@Handler.append_func("WatchedChangeMessage")
 async def _(model: models.WatchedChangeMessage):
     if model.num != count["WatchNum"]:
         print(f"[{model.room_id}] | 观看人数: {model.text_large}")
         count["WatchNum"] = model.num
 
 
-@Handler.append_func(models.LikeClickMessage)
+@Handler.append_func("LikeClickMessage")
 async def _(model: models.LikeClickMessage):
     print(f"[{model.room_id}] | 用户[{model.uname}]{model.like_text}")
 
 
-@Handler.append_func(models.LoginNoticeMessage)
+@Handler.append_func("LoginNoticeMessage")
 async def _(model: models.LoginNoticeMessage):
     print(f"[{model.room_id}] | 日志: {model.message}")
 
 
-@Handler.append_func(models.SuperChatMessage)
+@Handler.append_func("SuperChatMessage")
 async def _(model: models.SuperChatMessage):
     print(f"[{model.room_id}] | 醒目留言 ¥{model.price} | {model.uname}：{model.message}")
 
 
-@Handler.append_func(models.GuardBuyMessage)
+@Handler.append_func("GuardBuyMessage")
 async def _(model: models.GuardBuyMessage):
     print(f"[{model.room_id}] | {model.username} 购买{model.gift_name}")
 
 
-@Handler.append_func(models.InteractWordMessage, models.InteractWordV2Message)
+@Handler.append_func("InteractWordMessage", "InteractWordV2Message")
 async def _(model: models.InteractWordMessage | models.InteractWordV2Message):
     match model.msg_type:
         case 2:
@@ -91,6 +90,9 @@ async def main():
         await asyncio.Event().wait()
     except asyncio.CancelledError:
         logger.info("正在关闭程序")
+    finally:
+        for client in room_task.values():
+            await client.close()
 
 
 if __name__ == '__main__':
