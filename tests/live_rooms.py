@@ -39,7 +39,8 @@ HEADERS = {
     "Safari/537.36 Edg/145.0.0.0",
     "Referer": "https://www.bilibili.com/",
 }
-CodeError = Exception
+CodeError = type("CodeError", (Exception,), {})
+EmptyError = type("EmptyError", (Exception,), {})
 
 
 UIDS = convert_str_to_list_int(os.getenv("LIVE_ROOM_MID"))
@@ -50,11 +51,11 @@ user_care_urls = [USER_CARD_API.format(uid) for uid in UIDS]
 
 
 def qqyx(subject: str, message: str) -> None:
-    email_addr = "menboid@qq.com"
-    email_pwd = "zxkcqcnuanrachdd"
+    email_addr = os.getenv("QQ_EMAIL_ADDR")
+    email_pwd = os.getenv("QQ_EMAIL_PWD")
 
     if not email_addr or not email_pwd:
-        raise ValueError("邮箱地址和密码不能为空")
+        raise EmptyError("邮箱地址和密码不能为空")
 
     msg = EmailMessage()
     msg["subject"] = subject
@@ -90,7 +91,6 @@ async def fetch_all_data(session):
     user_card_tasks = [fetch(session, url) for url in user_care_urls]
     status_results = await asyncio.gather(*status_tasks, return_exceptions=True)
     user_card_results = await asyncio.gather(*user_card_tasks, return_exceptions=True)
-    user_card_results = [CodeError("1"), CodeError("2")]
     return status_results, user_card_results
 
 
@@ -114,7 +114,8 @@ async def get_live_status():
         processed_user_card_results = []
         for i, result in enumerate(user_card_results):
             if isinstance(result, Exception):
-                logger.warning(f"获取用户名称失败,回退到使用UID显示. URL: {user_care_urls[i]} 错误原因: {type(result).__name__}: {result}")
+                logger.warning(f"获取用户名称失败,回退到使用UID显示. 错误原因: {type(result).__name__}: {result} | "
+                               "URL: {user_care_urls[i]}")
                 processed_user_card_results.append(None)
             else:
                 processed_user_card_results.append(result)
@@ -127,14 +128,16 @@ async def get_live_status():
             user_name = name_data["data"]["info"]["uname"] if name_data else uid
             logger.info(f"{[user_name]}{'已开播' if path.exists() else '未开播'}")
             if status_data["data"]["liveStatus"] and not path.exists():
-                qqyx("开播提醒", f"[{user_name}]已开播")
                 path.touch()
+                qqyx("开播提醒", f"[{user_name}]已开播")
             if not status_data["data"]["liveStatus"] and path.exists():
-                qqyx("下播提醒", f"[{user_name}]已下播")
                 path.unlink(missing_ok=True)
+                qqyx("下播提醒", f"[{user_name}]已下播")
         logger.info("所有直播间检测完毕")
     except asyncio.CancelledError:
         pass
+    except EmptyError:
+        logger.error("邮箱密码为空,请在.env填入QQ_EMAIL_ADDR和QQ_EMAIL_PWD并重启")
     except Exception as e:
         logger.opt(exception=e).error("未知错误")
 
