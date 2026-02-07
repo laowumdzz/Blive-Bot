@@ -1,18 +1,17 @@
+import ast
 import asyncio
 import dataclasses
-import json
-import os
-import pickle
-import re
-import threading
-import time
-import tomllib
-import urllib.parse
-from ast import literal_eval
 from functools import reduce
 from hashlib import md5
+import json
+import os
 from pathlib import Path
-from typing import Optional, Any, TypeVar, Union
+import pickle
+import re
+import time
+import tomllib
+from typing import Any, ClassVar, TypeVar
+import urllib.parse
 
 import aiohttp
 from loguru import logger
@@ -47,25 +46,25 @@ class SignedParams:
     """
     Data: SignedKeyData = SignedKeyData()
     flushed_time: int = 2 * 86000
-    mixinKeyEncTab = [
+    mixinKeyEncTab: ClassVar[list[int]] = [
         46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
         33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
         61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
         36, 20, 34, 44, 52
     ]
-    headers = {
+    headers: ClassVar[dict] = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
         "Referer": "https://www.bilibili.com/",
         "Origin": "http://www.bilibili.com",
     }
-    _session: Optional[aiohttp.ClientSession] = None
+    _session: aiohttp.ClientSession | None = None
 
     @classmethod
     async def get_end_result(
             cls,
-            mid: Optional[int] = None,
-            params: Optional[dict[str, Any]] = None,
+            mid: int | None = None,
+            params: dict[str, Any] | None = None,
             compulsion: bool = False,
             use_webid: bool = False,
             use_cookie: bool = False,
@@ -109,7 +108,7 @@ class SignedParams:
         :return: img_key, sub_key
         """
         if (time.time() - (cls.Data.WbiKeys_update_timestamp + cls.flushed_time)) >= 0 or compulsion:
-            async with cls._session.get('https://api.bilibili.com/x/web-interface/nav') as response:
+            async with cls._session.get("https://api.bilibili.com/x/web-interface/nav") as response:
                 response.raise_for_status()
                 nav_data = await response.json()
             img_key = nav_data["data"]["wbi_img"]["img_url"].rsplit("/", 1)[1].split(".")[0]
@@ -130,7 +129,7 @@ class SignedParams:
         """
         if (time.time() - (cls.Data.WbiKeys_update_timestamp + cls.flushed_time)) >= 0 or compulsion:
             try:
-                async with cls._session.get(f'https://space.bilibili.com/{mid}/dynamic') as response:
+                async with cls._session.get(f"https://space.bilibili.com/{mid}/dynamic") as response:
                     response.raise_for_status()
                     text = re.search(r"<script id=\"__RENDER_DATA__\" type=\"application/json\">(.*?)</script>",
                                      await response.text(), re.S).group(1)
@@ -211,7 +210,7 @@ class ConfigManage:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, file: Union[str, Path] = None, **kwargs):
+    def __init__(self, file: os.PathLike | None = None, **kwargs):
         if file is None:
             file = os.getenv("CONFIG_FILE") or Path(__file__).parent / "config.toml"
         file = Path(file) if isinstance(file, str) else file
@@ -231,7 +230,7 @@ class ConfigManage:
             logger.error(f"Unexpected error while loading config file: {e}")
             raise
 
-    def get(self, key: str, default: Optional[Any] = None) -> Any:
+    def get(self, key: str, default: Any | None = None) -> Any:
         return self.configs.get(key, default)
 
     def update(self, new_configs: dict[str, Any]):
@@ -239,7 +238,7 @@ class ConfigManage:
         logger.success("Config updated successfully!")
 
     @classmethod
-    def get_config(cls, config: type[C], names: Optional[list[str]] = None) -> C:
+    def get_config(cls, config: type[C], names: list[str] | None = None) -> C:
         """从全局配置获取当前插件需要的配置项"""
         if not getattr(cls, "_instance", None):
             cls._instance = cls()
@@ -255,16 +254,18 @@ class ConfigManage:
         return cls().configs
 
 
-def convert_str_to_list(str_list: str) -> list[int] | None:
+def convert_str_to_list_int(v) -> list[int] | None:
     """
     将字符串类型列表安全转换成Python对象
     :param str_list: 字符串列表,如'[1, 2, 3]'
     :return: Python列表对象
     """
     try:
-        result = literal_eval(str_list)
-        if isinstance(result, list):
+        result = ast.literal_eval(v)
+        if isinstance(result, list) and all(isinstance(i, int) for i in result):
             return result
-        return None
     except (ValueError, SyntaxError):
-        return None
+        logger.error(
+            "LIVE_ROOM_MID must be a valid list of integers, e.g., '[1, 2, 3]'")
+        raise
+    return None
