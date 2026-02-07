@@ -1,36 +1,38 @@
 """消息解析模块"""
 import asyncio
-from typing import Literal
+from typing import ClassVar, Literal
+
+from loguru import logger
 
 from .models import *
 
-__all__ = (
+__all__ = [
     "Handler",
-)
+]
 
 IGNORED_CMDS = {
-    'COMBO_SEND',
-    'ENTRY_EFFECT',
-    'HOT_RANK_CHANGED',
-    'HOT_RANK_CHANGED_V2',
-    'LIVE',
-    'LIVE_INTERACTIVE_GAME',
-    'NOTICE_MSG',
-    'ONLINE_RANK_COUNT',
-    'ONLINE_RANK_TOP3',
-    'ONLINE_RANK_V2',
-    'PK_BATTLE_END',
-    'PK_BATTLE_FINAL_PROCESS',
-    'PK_BATTLE_PROCESS',
-    'PK_BATTLE_PROCESS_NEW',
-    'PK_BATTLE_SETTLE',
-    'PK_BATTLE_SETTLE_USER',
-    'PK_BATTLE_SETTLE_V2',
-    'PREPARING',
-    'ROOM_REAL_TIME_MESSAGE_UPDATE',
-    'STOP_LIVE_ROOM_LIST',
-    'SUPER_CHAT_MESSAGE_JPN',
-    'WIDGET_BANNER',
+    "COMBO_SEND",
+    "ENTRY_EFFECT",
+    "HOT_RANK_CHANGED",
+    "HOT_RANK_CHANGED_V2",
+    "LIVE",
+    "LIVE_INTERACTIVE_GAME",
+    "NOTICE_MSG",
+    "ONLINE_RANK_COUNT",
+    "ONLINE_RANK_TOP3",
+    "ONLINE_RANK_V2",
+    "PK_BATTLE_END",
+    "PK_BATTLE_FINAL_PROCESS",
+    "PK_BATTLE_PROCESS",
+    "PK_BATTLE_PROCESS_NEW",
+    "PK_BATTLE_SETTLE",
+    "PK_BATTLE_SETTLE_USER",
+    "PK_BATTLE_SETTLE_V2",
+    "PREPARING",
+    "ROOM_REAL_TIME_MESSAGE_UPDATE",
+    "STOP_LIVE_ROOM_LIST",
+    "SUPER_CHAT_MESSAGE_JPN",
+    "WIDGET_BANNER",
     "RANK_CHANGED_V2",
     "ONLINE_RANK_V3",
     "COMMON_NOTICE_DANMAKU",
@@ -77,7 +79,7 @@ class Handler:
     async def _(model):
     """
 
-    _CMD_MODEL_DICT = {
+    _CMD_MODEL_DICT: ClassVar[dict[str, type[MessageInterface]]] = {
         # 收到弹幕
         "DANMU_MSG": DanmakuMessage,
         # 有人送礼
@@ -125,8 +127,8 @@ class Handler:
             # 只有第一次遇到未知cmd时打日志
             if cmd not in logged_unknown_cmds:
                 logged_unknown_cmds.add(cmd)
-                print(f"[{room_id}] | 未知CMD:{cmd} | 原始消息:{message}")
-            print(f"未解析CMD:{cmd}")
+                logger.warning(f"[{room_id}] | 未知CMD:{cmd} | 原始消息:{message}")
+            logger.warning(f"未解析CMD:{cmd}")
 
     @classmethod
     def append_func(cls, *msg_types: _msg_type):

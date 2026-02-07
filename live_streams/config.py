@@ -8,7 +8,7 @@ class Config(BaseModel):
     """保存直播消息方式,0为不保存/1为数据库JSON保存/2为本地JSON文件保存"""
     data_analysis: bool = False
     """是否启用数据分析,未启用消息存储时只能分析单场直播"""
-    cookie: str = None
+    cookie: str | None = None
     """COOKIE"""
 
 
@@ -39,3 +39,5 @@ CMD_TO_INFO = {
     "PLAY_TOGETHER": "未知消息",
     "PK_BATTLE_PROCESS": "PK进程",
 }
+ROOM_INFO_URL = "https://api.live.bilibili.com/room/v1/Room/get_info"
+DANMUINFO_URL = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo"

@@ -3,29 +3,31 @@ import abc
 import base64
 import json
 
-import utils.InteractWordV2 as InteractWordV2
 from pydantic import BaseModel
 
-__all__ = (
+import utils.InteractWordV2 as InteractWordV2
+
+__all__ = [
     "DanmakuMessage",
     "GeneralMessage",
     "GiftMessage",
     "GuardBuyMessage",
+    "InteractWordMessage",
+    "InteractWordV2Message",
+    "LikeClickMessage",
+    "LikeUpdateMessage",
+    "LoginNoticeMessage",
+    "MessageInterface",
     "MessageInterface",
     "SuperChatDeleteMessage",
     "SuperChatMessage",
-    "LoginNoticeMessage",
-    "WatchedChangeMessage",
-    "LikeClickMessage",
-    "LikeUpdateMessage",
     "UserToastMessage",
-    "InteractWordMessage",
-    "InteractWordV2Message",
-)
+    "WatchedChangeMessage",
+]
 
 
 class MessageInterface(abc.ABC, BaseModel):
-    room_id: int = None
+    room_id: int | None = None
 
     @classmethod
     @abc.abstractmethod
@@ -561,5 +563,5 @@ class InteractWordV2Message(MessageInterface):
             uname=pb.uname,
             uid=pb.uid,
             msg_type=pb.msg_type,
-            face='fyex6922'
+            face="fyex6922"
         )
