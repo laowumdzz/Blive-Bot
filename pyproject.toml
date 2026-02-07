@@ -1,25 +1,87 @@
 [project]
 name = "blive-bot"
 version = "0.1.0"
-description = "Add your description here"
+description = "BiliBili直播间机器人"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "aiofiles",
-    "aiohttp",
-    "python-dotenv",
-    "loguru",
-    "cryptography",
-    "brotli",
-    "websockets",
     "pydantic>=2.11.7",
-    "sqlalchemy>=2.0.41",
-    "asyncpg>=0.30.0",
     "asyncio>=3.4.3",
     "protobuf>=6.31.1",
     "apscheduler>=3.11.0",
+    "uvloop>=0.22.1 ; sys_platform == 'linux'",
+    "aiofiles>=25.1.0",
+    "aiohttp>=3.13.3",
+    "python-dotenv>=1.2.1",
+    "loguru>=0.7.3",
+    "cryptography>=46.0.4",
+    "brotli>=1.2.0",
+    "websockets>=16.0",
 ]
+
+[dependency-groups]
+dev = ["pyright>=1.1.408", "ruff>=0.15.0"]
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+    "F",     # Pyflakes
+    "W",     # pycodestyle warnings
+    "E",     # pycodestyle errors
+    "I",     # isort
+    "UP",    # pyupgrade
+    "ASYNC", # flake8-async
+    "C4",    # flake8-comprehensions
+    "T10",   # flake8-debugger
+    "T20",   # flake8-print
+    "PYI",   # flake8-pyi
+    "PT",    # flake8-pytest-style
+    "Q",     # flake8-quotes
+    "TID",   # flake8-tidy-imports
+    "RUF",   # Ruff-specific rules
+]
+ignore = [
+    "E402",   # module-import-not-at-top-of-file
+    "UP037",  # quoted-annotation
+    "RUF001", # ambiguous-unicode-character-string
+    "RUF002", # ambiguous-unicode-character-docstring
+    "RUF003", # ambiguous-unicode-character-comment
+    "TID252", # relative-imports
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["zhenxun", "tests/*"]
+extra-standard-library = ["typing_extensions"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.pyright]
+pythonVersion = "3.12"
+pythonPlatform = "All"
+defineConstant = { PYDANTIC_V2 = true }
+executionEnvironments = [
+    { root = "./tests", extraPaths = [
+        "./",
+    ] },
+    { root = "./" },
+]
+
+typeCheckingMode = "standard"
+reportShadowedImports = false
+disableBytesTypePromotions = true
