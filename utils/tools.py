@@ -212,7 +212,7 @@ class ConfigManage:
 
     def __init__(self, file: os.PathLike | None = None, **kwargs):
         if file is None:
-            file = os.getenv("CONFIG_FILE") or Path(__file__).parent / "config.toml"
+            file = os.getenv("CONFIG_FILE") or Path(__file__).parent.parent / "config.toml"
         file = Path(file) if isinstance(file, str) else file
 
         try:
@@ -252,6 +252,23 @@ class ConfigManage:
     def get_all_config(cls) -> dict[str, Any]:
         """获取包含所有配置的字典"""
         return cls().configs
+
+
+def convert_str_to_list(v: str) -> list[int]:
+    """
+    将字符串类型列表安全转换成Python对象
+    :param v: 字符串列表,如'[1, 2, 3]'
+    :return: Python列表对象
+    """
+    try:
+        result = ast.literal_eval(v)
+        if isinstance(result, list):
+            return result
+    except (ValueError, SyntaxError):
+        logger.error(
+            "LIVE_ROOM_ID must be a valid list, e.g., '[1, 2, 3]'")
+        raise
+    return []
 
 
 def convert_str_to_list_int(v) -> list[int] | None:
