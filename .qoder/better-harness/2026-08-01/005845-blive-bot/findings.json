@@ -1,0 +1,177 @@
+{
+  "summary": {
+    "projectName": "Blive-Bot",
+    "locale": "zh-CN",
+    "modelId": "agent-work-loop-v4",
+    "reportContractVersion": 25,
+    "overview": "该项目具备可运行的 B 站直播 WebSocket 监听能力，但缺乏测试基础设施、质量门禁未通过且无强制执行，且无 AGENTS.md 等代理层路由指引，使得变更正确性无法通过机械手段验证。会话证据为 session-limited（30 天窗口仅 1 个 self-analysis 会话），维度评分基于项目 Harness 机制检查。",
+    "aiAgentPractice": {
+      "inspectedSurfaces": [
+        "Rules"
+      ],
+      "coverageRows": [
+        {
+          "surface": "Rules",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        },
+        {
+          "surface": "Skills",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        },
+        {
+          "surface": "Custom Agents",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        },
+        {
+          "surface": "Plugins",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        }
+      ]
+    },
+    "assignmentSummaries": [],
+    "dimensions": [
+      {
+        "id": "task-understanding",
+        "label": "任务理解",
+        "score": 42,
+        "summary": "项目无 AGENTS.md 或等价规则文件，代理缺少项目级上下文路由；MsgType 运行时动态枚举与 star import 降低静态可分析性。",
+        "findingRefs": [
+          "msgtype-dynamic-enum-star-import",
+          "no-agents-md-rules"
+        ]
+      },
+      {
+        "id": "controlled-execution",
+        "label": "可控执行",
+        "score": 48,
+        "summary": "依赖声明和 Python 版本固定存在，但环境准备无 doctor/reset 路径，assert 滥用和二进制缓存入库构成运行时风险。",
+        "findingRefs": [
+          "assert-type-narrowing-production",
+          "binary-cache-tracked-in-git"
+        ]
+      },
+      {
+        "id": "change-validation",
+        "label": "改动验证",
+        "score": 32,
+        "summary": "无测试框架（pytest 未安装），ruff 报告 156 个错误且无 CI/pre-commit 强制执行，变更正确性无法通过机械手段验证。",
+        "findingRefs": [
+          "test-infrastructure-missing",
+          "ruff-gate-not-enforced"
+        ]
+      },
+      {
+        "id": "reliable-delivery",
+        "label": "可靠交付",
+        "score": 35,
+        "summary": "无 CI/CD、无分支保护证据、无回滚机制（仅靠 git），二进制缓存入库干扰变更审查。",
+        "findingRefs": []
+      },
+      {
+        "id": "learning-capture",
+        "label": "经验沉淀",
+        "score": 35,
+        "summary": "30 天窗口内仅 1 个 self-analysis 会话，0 候选 Episode，证据边界阻止 Learning Capture 评估。",
+        "findingRefs": []
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "test-infrastructure-missing",
+      "title": "项目无测试框架——tests/ 包含脚本而非测试",
+      "severity": "Medium",
+      "reason": "tests/test.py 是手动 protobuf 解码脚本（无断言、无测试函数），tests/live_rooms.py 是独立的直播监控加邮件通知应用。pytest 未安装，pyproject.toml 无 pytest 依赖和配置。当前 MsgType 枚举重构改变了 Handler.append_func 的 API 签名和 _func 字典的键类型，但无任何自动化测试能验证消息分发仍正确工作。",
+      "expectedOutput": [
+        "为 Handler 消息分发添加至少一个聚焦测试，验证 MsgType 枚举成员正确路由到对应回调。"
+      ],
+      "expectedArtifact": "Test suite",
+      "aiFixPrompt": "/better-harness fix this issue\n\n为 live_streams/handler.py 的消息分发逻辑添加最小的 pytest 测试覆盖，验证 MsgType 枚举重构后的消息路由正确性。\n\n## Validation\n\n- 安装 pytest: uv add --dev pytest\n- 运行 pytest tests/ 确认测试通过\n- 验证 Handler.append_func 的 MsgType 键类型与 _func 字典一致",
+      "dimensionRefs": [
+        "change-validation"
+      ]
+    },
+    {
+      "id": "ruff-gate-not-enforced",
+      "title": "Ruff 质量门禁声明存在但未通过——156 个错误含核心文件",
+      "severity": "Medium",
+      "reason": "pyproject.toml 配置了 13 类 ruff 规则，但 ruff check . 返回 156 个错误。核心文件 handler.py 存在 F403（from .models import *）和 F405（MsgType 可能未定义），main.py 有 9 处 T201（print 发现）。无 pre-commit、无 CI 强制执行。T20 规则与 main.py 的弹幕显示设计意图冲突，但无 per-file-ignores 豁免配置。",
+      "expectedOutput": [
+        "ruff check . 在核心源文件上返回零错误，main.py 的 T201 通过 per-file-ignores 明确豁免。"
+      ],
+      "expectedArtifact": "Ruff configuration",
+      "aiFixPrompt": "/better-harness fix this issue\n\n修复 ruff check . 的关键错误并为 main.py 的 print 使用添加 per-file-ignores 豁免。\n\n## Validation\n\n- 运行 ruff check . 确认核心文件（handler.py, models.py, __init__.py, main.py, tools.py）无 F403/F405 错误\n- 为 main.py 的 print 添加 per-file-ignores T201 豁免\n- 运行 ruff check --fix . 修复可自动修复的错误",
+      "dimensionRefs": [
+        "change-validation"
+      ]
+    },
+    {
+      "id": "assert-type-narrowing-production",
+      "title": "生产路径使用 assert 进行类型收窄——python -O 下将被剥离",
+      "severity": "Medium",
+      "reason": "当前 diff 在 live_streams/__init__.py（7 处）、utils/tools.py（3 处）、main.py（2 处）新增了 assert 语句，用于为 pyright 收窄 Optional 类型（如 assert self._session is not None）。这些 assert 位于异步消息处理和 WebSocket 通信的关键路径上。在 python -O 或 PYTHONOPTIMIZE=1 环境下，assert 语句会被完全剥离，导致 None 值直接进入 aiohttp/websockets 调用。",
+      "expectedOutput": [
+        "生产路径中不再使用 assert 进行类型收窄，None 检查使用显式条件分支。"
+      ],
+      "expectedArtifact": "Code fix",
+      "aiFixPrompt": "/better-harness fix this issue\n\n将生产路径中的 assert 类型收窄替换为显式 None 检查和错误处理。\n\n## Validation\n\n- 搜索 live_streams/__init__.py, utils/tools.py, main.py 中的 assert 语句\n- 将 assert x is not None 替换为 if x is None: raise RuntimeError(...) 或等价显式检查\n- 运行 ruff check . 确认无新错误\n- 运行 python -O main.py 确认程序正常启动",
+      "dimensionRefs": [
+        "controlled-execution"
+      ]
+    },
+    {
+      "id": "binary-cache-tracked-in-git",
+      "title": "WbiSignature.pkl 二进制运行时缓存被 git 跟踪",
+      "severity": "Low",
+      "reason": "utils/temp/WbiSignature.pkl（322 字节 pickle 文件）被 git 跟踪并在当前 diff 中被修改。该文件是 SignedParams 类的运行时缓存，每次程序运行都可能产生变更。utils/temp/ 路径暗示其为临时文件。后果是：每次运行后产生 git 变更噪音，干扰真实变更审查，多人协作时产生合并冲突，且 pickle 格式存在反序列化安全风险。",
+      "expectedOutput": [
+        "WbiSignature.pkl 不再被 git 跟踪，.gitignore 包含 utils/temp/ 模式。"
+      ],
+      "expectedArtifact": "Git configuration",
+      "aiFixPrompt": "/better-harness fix this issue\n\n将 utils/temp/WbiSignature.pkl 从 git 跟踪中移除并添加到 .gitignore。\n\n## Validation\n\n- 运行 git rm --cached utils/temp/WbiSignature.pkl\n- 在 .gitignore 中添加 utils/temp/ 或 utils/temp/WbiSignature.pkl\n- 确认 git status 不再显示该文件为已跟踪\n- 运行 python main.py 确认程序正常运行（缓存会在本地重新生成）",
+      "dimensionRefs": [
+        "controlled-execution"
+      ]
+    },
+    {
+      "id": "msgtype-dynamic-enum-star-import",
+      "title": "MsgType 运行时动态枚举与 star import 降低静态可分析性",
+      "severity": "Low",
+      "reason": "models.py 在运行时通过 enum.Enum() 动态生成 MsgType 枚举，同时 handler.py 使用 from .models import * 导入。这导致 ruff 报告 F403/F405（MsgType 可能未定义），静态类型检查器和 IDE 可能无法正确解析 MsgType 成员。models.py 通过 TYPE_CHECKING 块提供了静态可见的 MsgType 定义来补偿，但创建了运行时与静态分析的分歧。pyright 执行超时（180s 无输出），无法验证当前类型检查状态。",
+      "expectedOutput": [
+        "handler.py 使用显式导入替代 star import，ruff 无 F403/F405 错误，pyright 能解析 MsgType 类型。"
+      ],
+      "expectedArtifact": "Code fix",
+      "aiFixPrompt": "/better-harness fix this issue\n\n消除 handler.py 中的 star import，改为显式导入 MsgType 和所需的消息模型类，并验证 pyright 能正确解析类型。\n\n## Validation\n\n- 将 handler.py 的 from .models import * 替换为显式导入\n- 运行 ruff check live_streams/handler.py 确认无 F403/F405 错误\n- 运行 pyright live_streams/handler.py 确认类型检查通过",
+      "dimensionRefs": [
+        "task-understanding"
+      ]
+    },
+    {
+      "id": "no-agents-md-rules",
+      "title": "项目缺少 AGENTS.md 或任何代理层规则文件",
+      "severity": "Low",
+      "reason": "项目中不存在 AGENTS.md、.cursorrules、CLAUDE.md 或任何其他 agent 层规则文件。core-change-watch evidence-pack 确认 no tracked AGENTS.md files found for a source-bearing repository，建议最小值 1。项目有 10 个源文件分布在 3 个源根（live_streams, utils, main.py），但代理无项目级路由指引、上下文边界声明或所有者映射。",
+      "expectedOutput": [
+        "项目根目录存在 AGENTS.md，包含模块边界、环境变量需求、运行和 lint 命令和核心风险区域说明。"
+      ],
+      "expectedArtifact": "AGENTS.md",
+      "aiFixPrompt": "/better-harness fix this issue\n\n在项目根目录创建 AGENTS.md，包含最小的项目路由指引：模块边界、环境变量需求、运行和测试命令、核心变更风险区域。\n\n## Validation\n\n- 创建 AGENTS.md 文件，包含 live_streams、utils、main.py 的模块说明\n- 列出必需环境变量（LIVE_ROOM_ID）和可选变量（COOKIE, LOG_PATH）\n- 列出运行命令（uv run python main.py）和 lint 命令（uv run ruff check .）\n- 标注核心变更风险区域（handler.py 消息分发、models.py 消息模型）",
+      "dimensionRefs": [
+        "task-understanding"
+      ]
+    }
+  ]
+}

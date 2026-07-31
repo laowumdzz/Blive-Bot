@@ -1,0 +1,44 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: main
+nodes_managed: true
+exported_at: "2026-07-31T17:27:06Z"
+modules:
+    "":
+        dir_name: Blive-Bot 主程序入口与项目配置
+        title: Blive-Bot 主程序入口与项目配置
+        scope:
+            - main.py
+            - config.toml
+            - pyproject.toml
+            - uv.lock
+            - .gitignore
+            - .python-version
+            - LICENSE
+        source_files: []
+        children:
+            - live_streams
+            - utils
+        depends_on: []
+        related_to: []
+    live_streams:
+        dir_name: B站直播弹幕 WebSocket 客户端
+        title: B站直播弹幕 WebSocket 客户端
+        scope:
+            - live_streams/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: utils
+    utils:
+        dir_name: 工具与通用库（配置管理、WBI签名、Protobuf定义）
+        title: 工具与通用库（配置管理、WBI签名、Protobuf定义）
+        scope:
+            - utils/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: live_streams
