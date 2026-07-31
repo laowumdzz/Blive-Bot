@@ -81,7 +81,10 @@ async def _(model: models.InteractWordMessage | models.InteractWordV2Message):
             count["InteractWord"] += 1
             type_str = "进入直播间"
     print(
-        f"[{model.room_id}] | 用户:[{model.uname}] {type_str} || InteractWord_count:{count['InteractWord']} | Danmaku_count:{count['Danmaku']}")
+        f"[{model.room_id}] | 用户:[{model.uname}] {type_str} "
+        f"|| InteractWord_count:{count['InteractWord']} "
+        f"| Danmaku_count:{count['Danmaku']}",
+    )
 
 
 async def main():

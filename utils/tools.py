@@ -189,7 +189,7 @@ class SignedParams:
     async def close(cls):
         if cls._session:
             await cls._session.close()
-            cls.session = None
+            cls._session = None
 
     @classmethod
     def _save_data(cls):

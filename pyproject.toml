@@ -18,7 +18,11 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pyright>=1.1.408", "ruff>=0.15.0"]
+dev = [
+    "pyright>=1.1.408",
+    "pytest>=9.1.1",
+    "ruff>=0.15.0",
+]
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
@@ -59,6 +63,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "main.py" = ["T201"]
+"utils/InteractWordV2.py" = ["E501"]  # protoc 自动生成的 protobuf 代码
+"utils/InteractWordV2.pyi" = ["E501"]  # protoc 自动生成的类型存根
+"tests/test.py" = ["E501", "T201"]  # 独立验证脚本（含 base64 字符串与 print）
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
@@ -84,3 +91,7 @@ executionEnvironments = [
     { root = "./tests", extraPaths = ["./"] },
     { root = "./" },
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

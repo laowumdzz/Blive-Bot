@@ -99,7 +99,7 @@ class Handler:
         _CMD_MODEL_DICT[_cmd] = None
 
     @classmethod
-    async def handle(cls, room_id: int, message: dict):
+    async def handle(cls, room_id: int, message: dict, msg_id: int = 0):
         cmd = message.get("cmd", "")
         pos = cmd.find(":")
         if pos != -1:
@@ -107,17 +107,38 @@ class Handler:
 
         model_type = cls._CMD_MODEL_DICT.get(cmd)
         if model_type is not None:
-            model = model_type.from_command(message)
+            try:
+                model = model_type.from_command(message)
+            except (KeyError, IndexError, TypeError) as e:
+                logger.warning(
+                    f"[{room_id}] [msg:{msg_id}] 消息解析失败 cmd={cmd} "
+                    f"model={model_type.__name__} "
+                    f"error={type(e).__name__}: {e} | 原始消息:{message}"
+                )
+                return
             model.room_id = room_id
             msg_type = MsgType(model_type)
-            await asyncio.gather(*(fun(model) for fun in _func[msg_type]))
+            logger.debug(
+                f"[{room_id}] [msg:{msg_id}] 分发消息 cmd={cmd} model={model_type.__name__}")
+            callbacks = list(_func[msg_type])
+            results = await asyncio.gather(
+                *(fun(model) for fun in callbacks),
+                return_exceptions=True,
+            )
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(
+                        f"[{room_id}] [msg:{msg_id}] 回调执行失败 cmd={cmd} "
+                        f"callback={callbacks[i].__name__} "
+                        f"error={type(result).__name__}: {result}"
+                    )
 
         if cmd not in cls._CMD_MODEL_DICT:
             # 只有第一次遇到未知cmd时打日志
             if cmd not in logged_unknown_cmds:
                 logged_unknown_cmds.add(cmd)
-                logger.warning(f"[{room_id}] | 未知CMD:{cmd} | 原始消息:{message}")
-            logger.warning(f"未解析CMD:{cmd}")
+                logger.warning(f"[{room_id}] [msg:{msg_id}] 未知CMD:{cmd} | 原始消息:{message}")
+            logger.warning(f"[{room_id}] [msg:{msg_id}] 未解析CMD:{cmd}")
 
     @classmethod
     def append_func(cls, *msg_types: MsgType):

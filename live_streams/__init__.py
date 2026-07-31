@@ -97,6 +97,8 @@ class BLiveClient:
         self._Main_Task: asyncio.Task | None = None
         self.program_status: bool = False
         self.live_status: bool = False
+        self._msg_seq: int = 0
+        """消息关联ID递增计数器，用于日志追踪单条消息的处理路径"""
 
     async def get_uri_port(self) -> tuple[set[str], bytes]:
         """
@@ -144,7 +146,7 @@ class BLiveClient:
                         response = await self._ws.recv(decode=False)
                         task = asyncio.create_task(self._on_message(response))
                         self._message_task.add(task)
-                        task.add_done_callback(self._message_task.discard)
+                        task.add_done_callback(self._on_message_task_done)
             except asyncio.CancelledError:
                 logger.info(f"[{self.room_id}] 正在关闭直播监听")
             except websockets.exceptions.ConnectionClosedError as e:
@@ -180,7 +182,10 @@ class BLiveClient:
         偏移量	长度	类型	    含义
         0	    4	uint32	封包总大小(头部大小+正文大小)
         4	    2	uint16	头部大小(一般为0x0010, 16字节)
-        6	    2	uint16	协议版本: 0.普通包正文不使用压缩, 1.心跳及认证包正文不使用压缩, 2.普通包正文使用zlib压缩, 3.普通包正文使用brotli压缩,解压为一个带头部的协议0普通包
+        6	    2	uint16	协议版本:
+            0.普通包正文不使用压缩, 1.心跳及认证包正文不使用压缩,
+            2.普通包正文使用zlib压缩, 3.普通包正文使用brotli压缩,
+            解压为一个带头部的协议0普通包
         8	    4	uint32	操作码(封包类型)
         12	    4	uint32	sequence, 每次发包时向上递增
         16      -   bytes[] 数据主体
@@ -205,22 +210,39 @@ class BLiveClient:
 
         self._Heartbeat_Task = asyncio.create_task(run())
 
-    async def _on_message(self, payload: bytes) -> None:
+    def _on_message_task_done(self, task: asyncio.Task) -> None:
+        """消息处理任务完成回调，记录未捕获异常并清理任务引用"""
+        self._message_task.discard(task)
+        if not task.cancelled():
+            exc = task.exception()
+            if exc is not None:
+                logger.opt(exception=exc).error(
+                    f"[{self.room_id}] 消息处理任务异常退出: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+
+    async def _on_message(self, payload: bytes, msg_id: int | None = None) -> None:
         """
         处理接收到的消息
         :param payload: 普通数据包
+        :param msg_id: 消息关联ID，用于日志追踪。为None时自动生成递增序号
         :return: None
         """
+        if msg_id is None:
+            self._msg_seq += 1
+            msg_id = self._msg_seq
         offset = 0
         body: bytes
         header = HeaderTuple(*HEADER_STRUCT.unpack_from(payload))
+        logger.debug(
+            f"[{self.room_id}] [msg:{msg_id}] 收到消息 operation={header.operation}")
         try:
             match header.operation:
                 case Operation.SEND_MSG_REPLY:
                     while True:
                         body = payload[offset +
                                        header.raw_header_size: offset + header.pack_len]
-                        await self._parse_message(header, body)
+                        await self._parse_message(header, body, msg_id)
                         offset += header.pack_len
                         if offset >= len(payload):
                             break
@@ -228,33 +250,40 @@ class BLiveClient:
                             *HEADER_STRUCT.unpack_from(payload, offset))
                 case Operation.HEARTBEAT_REPLY:
                     message = payload[offset + header.raw_header_size:]
+                    heartbeat_values = [
+                        int.from_bytes(message[i:i + 4])
+                        for i in range(0, len(message), 4)
+                    ]
                     logger.debug(
-                        f"[{self.room_id}] 心跳回应: {[int.from_bytes(message[i:i + 4]) for i in range(0, len(message), 4)]}"
+                        f"[{self.room_id}] [msg:{msg_id}] 心跳回应: {heartbeat_values}"
                     )
                 case Operation.AUTH_REPLY:
                     message = payload[offset + header.raw_header_size:]
                     decode_body = json.loads(message.decode())
                     if decode_body["code"] != AuthReplyCode.OK:
-                        logger.error(f"[{self.room_id}] 认证失败 | code:{decode_body['code']}")
+                        logger.error(f"[{self.room_id}] [msg:{msg_id}] 认证失败 | code:{decode_body['code']}")
                         raise AuthError(
                             f"auth reply error, code={decode_body['code']}, body={decode_body}")
-                    logger.debug(f"[{self.room_id}] 认证回应: {decode_body}")
+                    logger.debug(f"[{self.room_id}] [msg:{msg_id}] 认证回应: {decode_body}")
         except struct.error:
             logger.error(
-                f"[{self.room_id}] parsing header failed offset={offset} payload={payload}")
+                f"[{self.room_id}] [msg:{msg_id}] parsing header failed offset={offset} payload={payload}")
 
-    async def _parse_message(self, header: HeaderTuple, payload: bytes) -> None:
+    async def _parse_message(self, header: HeaderTuple, payload: bytes, msg_id: int) -> None:
         decode_body: dict
         match header.ver:
             case ProtoVer.BROTLI:
                 await self._on_message(
-                    await asyncio.to_thread(brotli.decompress, payload))
+                    await asyncio.to_thread(brotli.decompress, payload), msg_id)
             case ProtoVer.NORMAL:
                 if len(payload) != 0:
                     decode_body = json.loads(payload.decode())
                     if self.room_id is None:
                         raise RuntimeError("room_id未设置")
-                    await self._msg_hander.handle(self.room_id, decode_body)
+                    cmd = decode_body.get("cmd", "")
+                    logger.debug(
+                        f"[{self.room_id}] [msg:{msg_id}] 解析消息 cmd={cmd}")
+                    await self._msg_hander.handle(self.room_id, decode_body, msg_id)
                     if self._config.save_history_method == 2:
                         await asyncio.create_task(self._write_file(decode_body))
 

@@ -565,7 +565,7 @@ class InteractWordV2Message(MessageInterface):
             uname=pb.uname,
             uid=pb.uid,
             msg_type=pb.msg_type,
-            face="fyex6922"
+            face=pb.user_info.base.face,
         )
 
 
