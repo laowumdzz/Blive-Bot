@@ -1,14 +1,14 @@
 import asyncio
 import os
-import sys
 from pathlib import Path
+import sys
 
 from dotenv import load_dotenv
 from loguru import logger
 
 load_dotenv(verbose=True)
 
-from live_streams import *
+from live_streams import BLiveClient, Handler, MsgType, models
 from utils import convert_str_to_list
 
 room_task: dict[int, BLiveClient]
@@ -20,52 +20,56 @@ count: dict[str, int] = {
 }
 
 
-@Handler.append_func("DanmakuMessage")
+@Handler.append_func(MsgType.DanmakuMessage)
 async def _(model: models.DanmakuMessage):
     count["Danmaku"] += 1
     print(
         f"[{model.room_id}] | {model.uname}: {model.msg} | 等级: {model.user_level} | 舰队类型: {model.privilege_type}")
 
 
-@Handler.append_func("GiftMessage")
+@Handler.append_func(MsgType.GiftMessage)
 async def _(model: models.GiftMessage):
+    if model.total_coin is None:
+        raise RuntimeError("total_coin为None")
     print(
         f"[{model.room_id}] | {model.uname} 赠送{model.gift_name}x{model.num} | (CNYx{model.total_coin / 1000}元)")
 
 
-@Handler.append_func("LikeUpdateMessage")
+@Handler.append_func(MsgType.LikeUpdateMessage)
 async def _(model: models.LikeUpdateMessage):
     print(f"[{model.room_id}] | 点赞量:{model.click_count}")
 
 
-@Handler.append_func("WatchedChangeMessage")
+@Handler.append_func(MsgType.WatchedChangeMessage)
 async def _(model: models.WatchedChangeMessage):
     if model.num != count["WatchNum"]:
+        if model.num is None:
+            raise RuntimeError("观看人数为None")
         print(f"[{model.room_id}] | 观看人数: {model.text_large}")
         count["WatchNum"] = model.num
 
 
-@Handler.append_func("LikeClickMessage")
+@Handler.append_func(MsgType.LikeClickMessage)
 async def _(model: models.LikeClickMessage):
     print(f"[{model.room_id}] | 用户[{model.uname}]{model.like_text}")
 
 
-@Handler.append_func("LoginNoticeMessage")
+@Handler.append_func(MsgType.LoginNoticeMessage)
 async def _(model: models.LoginNoticeMessage):
     print(f"[{model.room_id}] | 日志: {model.message}")
 
 
-@Handler.append_func("SuperChatMessage")
+@Handler.append_func(MsgType.SuperChatMessage)
 async def _(model: models.SuperChatMessage):
     print(f"[{model.room_id}] | 醒目留言 ¥{model.price} | {model.uname}：{model.message}")
 
 
-@Handler.append_func("GuardBuyMessage")
+@Handler.append_func(MsgType.GuardBuyMessage)
 async def _(model: models.GuardBuyMessage):
     print(f"[{model.room_id}] | {model.username} 购买{model.gift_name}")
 
 
-@Handler.append_func("InteractWordMessage", "InteractWordV2Message")
+@Handler.append_func(MsgType.InteractWordMessage, MsgType.InteractWordV2Message)
 async def _(model: models.InteractWordMessage | models.InteractWordV2Message):
     match model.msg_type:
         case 2:
@@ -82,7 +86,10 @@ async def _(model: models.InteractWordMessage | models.InteractWordV2Message):
 
 async def main():
     global room_task
-    room_ids = convert_str_to_list(os.getenv("LIVE_ROOM_ID"))
+    env_room_id = os.getenv("LIVE_ROOM_ID")
+    if not env_room_id:
+        raise KeyError("环境变量LIVE_ROOM_ID未设置")
+    room_ids = convert_str_to_list(env_room_id)
     room_task = {room_id: BLiveClient(room_id=room_id) for room_id in room_ids}
     try:
         for client in room_task.values():
@@ -95,8 +102,8 @@ async def main():
             await client.close()
 
 
-if __name__ == '__main__':
-    log_path = Path(os.getenv('LOG_PATH') or Path.cwd())
+if __name__ == "__main__":
+    log_path = Path(os.getenv("LOG_PATH") or Path.cwd())
     logger.remove()
     logger.add(
         log_path / f"{os.path.basename(__file__).split('.')[0]}.log",

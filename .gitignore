@@ -208,4 +208,7 @@ __marimo__/
 logs/
 resources/
 .idea/
-uv.lock
+temp/
+
+# WBI signature cache (auto-generated at runtime)
+utils/temp/

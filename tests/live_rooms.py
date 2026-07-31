@@ -46,6 +46,7 @@ EmptyError = type("EmptyError", (Exception,), {})
 UIDS = convert_str_to_list_int(os.getenv("LIVE_ROOM_MID"))
 if not UIDS:
     raise ValueError("没有指定UID, 请在.env文件中指定LIVE_ROOM_MID,示例:[uid1, uid2]")
+assert UIDS is not None
 live_status_urls = [LIVE_STATUS_API.format(uid) for uid in UIDS]
 user_care_urls = [USER_CARD_API.format(uid) for uid in UIDS]
 
@@ -96,6 +97,7 @@ async def fetch_all_data(session):
 
 @scheduler.scheduled_job("interval", seconds=5, max_instances=2)
 async def get_live_status():
+    assert UIDS is not None
     if GLOBAL_SESSION is None:
         logger.error("全局 ClientSession 尚未初始化！")
         return
@@ -161,7 +163,7 @@ async def run():
 
 if __name__ == "__main__":
     try:
-        import uvloop
+        import uvloop  # pyright: ignore[reportMissingImports]
         uvloop.run(run())
     except ModuleNotFoundError:
         asyncio.run(run())

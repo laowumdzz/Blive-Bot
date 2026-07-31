@@ -8,7 +8,7 @@ encoded_data = "CMCxxs0EEhLljYPljYPlrrbjga7nqbrkuIMiAwYDASgBMLS5ieEGOJryssMGQI6V
 binary_data = base64.b64decode(encoded_data)
 
 # 5. 反序列化
-interact_word = interact_word_v2_pb2.INTERACT_WORD_V2().ParseFromString(binary_data)
+interact_word = interact_word_v2_pb2.INTERACT_WORD_V2()
 interact_word.ParseFromString(binary_data)
 print(f"用户ID: {interact_word.uid}")
 print(f"用户名: {interact_word.uname}")

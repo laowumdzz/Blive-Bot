@@ -94,6 +94,8 @@ class SignedParams:
         if not cls._session:
             cls._session = aiohttp.ClientSession(headers=cls.headers)
         if use_webid:
+            if mid is None:
+                raise KeyError("use_webid需要提供mid参数")
             default_params["w_webid"] = await cls._access_id(mid, compulsion)
         params = params or default_params
         logger.debug(f"签名参数: {params}")
@@ -108,6 +110,8 @@ class SignedParams:
         :return: img_key, sub_key
         """
         if (time.time() - (cls.Data.WbiKeys_update_timestamp + cls.flushed_time)) >= 0 or compulsion:
+            if cls._session is None:
+                raise RuntimeError("session未初始化")
             async with cls._session.get("https://api.bilibili.com/x/web-interface/nav") as response:
                 response.raise_for_status()
                 nav_data = await response.json()
@@ -128,11 +132,17 @@ class SignedParams:
         :return: access_id: str
         """
         if (time.time() - (cls.Data.WbiKeys_update_timestamp + cls.flushed_time)) >= 0 or compulsion:
+            if cls._session is None:
+                raise RuntimeError("session未初始化")
             try:
                 async with cls._session.get(f"https://space.bilibili.com/{mid}/dynamic") as response:
                     response.raise_for_status()
-                    text = re.search(r"<script id=\"__RENDER_DATA__\" type=\"application/json\">(.*?)</script>",
-                                     await response.text(), re.S).group(1)
+                    match = re.search(r"<script id=\"__RENDER_DATA__\" type=\"application/json\">(.*?)</script>",
+                                      await response.text(), re.S)
+                    if match is None:
+                        logger.error("没有找到RENDER_DATA")
+                        return ""
+                    text = match.group(1)
             except AttributeError:
                 logger.error("没有找到属性")
                 return ""
@@ -210,10 +220,11 @@ class ConfigManage:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, file: os.PathLike | None = None, **kwargs):
+    def __init__(self, file: str | os.PathLike[str] | None = None, **kwargs):
         if file is None:
-            file = os.getenv("CONFIG_FILE") or Path(__file__).parent.parent / "config.toml"
-        file = Path(file) if isinstance(file, str) else file
+            env_file = os.getenv("CONFIG_FILE")
+            file = env_file if env_file else Path(__file__).parent.parent / "config.toml"
+        file = Path(file)
 
         try:
             with open(file, "rb") as f:
@@ -242,6 +253,8 @@ class ConfigManage:
         """从全局配置获取当前插件需要的配置项"""
         if not getattr(cls, "_instance", None):
             cls._instance = cls()
+        if cls._instance is None:
+            raise RuntimeError("ConfigManage实例未初始化")
         _config = cls._instance.configs
         if names:
             for name in names:

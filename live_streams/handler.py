@@ -1,10 +1,25 @@
 """消息解析模块"""
 import asyncio
-from typing import ClassVar, Literal
+from typing import ClassVar
 
 from loguru import logger
 
-from .models import *
+from .models import (
+    DanmakuMessage,
+    GiftMessage,
+    GuardBuyMessage,
+    InteractWordMessage,
+    InteractWordV2Message,
+    LikeClickMessage,
+    LikeUpdateMessage,
+    LoginNoticeMessage,
+    MessageInterface,
+    MsgType,
+    SuperChatDeleteMessage,
+    SuperChatMessage,
+    UserToastMessage,
+    WatchedChangeMessage,
+)
 
 __all__ = [
     "Handler",
@@ -41,46 +56,19 @@ IGNORED_CMDS = {
 }
 """常见可忽略的cmd"""
 
-_msg_type = Literal[
-    "DanmakuMessage",
-    "GeneralMessage",
-    "GiftMessage",
-    "GuardBuyMessage",
-    "SuperChatMessage",
-    "SuperChatDeleteMessage",
-    "LoginNoticeMessage",
-    "WatchedChangeMessage",
-    "LikeClickMessage",
-    "LikeUpdateMessage",
-    "InteractWordMessage",
-    "InteractWordV2Message"
-]
 logged_unknown_cmds = set()
-_func = {
-    "DanmakuMessage": set(),
-    "GeneralMessage": set(),
-    "GiftMessage": set(),
-    "GuardBuyMessage": set(),
-    "SuperChatMessage": set(),
-    "SuperChatDeleteMessage": set(),
-    "LoginNoticeMessage": set(),
-    "WatchedChangeMessage": set(),
-    "LikeClickMessage": set(),
-    "LikeUpdateMessage": set(),
-    "InteractWordMessage": set(),
-    "InteractWordV2Message": set(),
-}
+_func = {msg_type: set() for msg_type in MsgType}
 
 
 class Handler:
     """
     直播消息处理器, 带消息分发和消息类型转换.
     请使用append_func装饰器装饰解析函数, 并标注需要注入的消息类型, 如:
-    @Handler.append_func(DanmakuMessage)
+    @Handler.append_func(MsgType.DanmakuMessage)
     async def _(model):
     """
 
-    _CMD_MODEL_DICT: ClassVar[dict[str, type[MessageInterface]]] = {
+    _CMD_MODEL_DICT: ClassVar[dict[str, type[MessageInterface] | None]] = {
         # 收到弹幕
         "DANMU_MSG": DanmakuMessage,
         # 有人送礼
@@ -107,9 +95,8 @@ class Handler:
     }
     """cmd -> 处理回调"""
     # 忽略其他常见cmd
-    for cmd in IGNORED_CMDS:
-        _CMD_MODEL_DICT[cmd] = None
-    del cmd
+    for _cmd in IGNORED_CMDS:
+        _CMD_MODEL_DICT[_cmd] = None
 
     @classmethod
     async def handle(cls, room_id: int, message: dict):
@@ -122,7 +109,8 @@ class Handler:
         if model_type is not None:
             model = model_type.from_command(message)
             model.room_id = room_id
-            await asyncio.gather(*(fun(model) for fun in _func[model_type.__name__]))
+            msg_type = MsgType(model_type)
+            await asyncio.gather(*(fun(model) for fun in _func[msg_type]))
 
         if cmd not in cls._CMD_MODEL_DICT:
             # 只有第一次遇到未知cmd时打日志
@@ -132,7 +120,7 @@ class Handler:
             logger.warning(f"未解析CMD:{cmd}")
 
     @classmethod
-    def append_func(cls, *msg_types: _msg_type):
+    def append_func(cls, *msg_types: MsgType):
         def decorator(func):
             for msg_type in msg_types:
                 _func[msg_type].add(func)

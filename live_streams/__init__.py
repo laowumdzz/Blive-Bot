@@ -20,10 +20,12 @@ from .config import DANMUINFO_URL, Config
 from .enum import AuthReplyCode, Operation, ProtoVer
 from .exception import AuthError
 from .handler import Handler
+from .models import MsgType
 
 __all__ = (
     "BLiveClient",
     "Handler",
+    "MsgType",
     "models",
 )
 
@@ -105,6 +107,8 @@ class BLiveClient:
         params = await SignedParams.get_end_result(params={"type": 0, "id": self.room_id, "web_location": "444.8"})
         await SignedParams.close()
         try:
+            if self._session is None:
+                raise RuntimeError("session未初始化")
             async with self._session.get(DANMUINFO_URL, params=params) as response:
                 response.raise_for_status()
                 data: dict[str, Any] = (await response.json())["data"]
@@ -182,6 +186,8 @@ class BLiveClient:
         16      -   bytes[] 数据主体
         """
 
+        if self._ws is None:
+            raise RuntimeError("WebSocket连接未建立")
         await self._ws.send(header + payload)
 
     async def on_open(self, encode_auth: bytes) -> None:
@@ -246,6 +252,8 @@ class BLiveClient:
             case ProtoVer.NORMAL:
                 if len(payload) != 0:
                     decode_body = json.loads(payload.decode())
+                    if self.room_id is None:
+                        raise RuntimeError("room_id未设置")
                     await self._msg_hander.handle(self.room_id, decode_body)
                     if self._config.save_history_method == 2:
                         await asyncio.create_task(self._write_file(decode_body))
@@ -274,6 +282,8 @@ class BLiveClient:
 
     async def get_room_id(self) -> None:
         params = await SignedParams.get_end_result(self.user_id)
+        if self._session is None:
+            raise RuntimeError("session未初始化")
         async with self._session.get("https://api.bilibili.com/x/space/wbi/acc/info", params=params) as response:
             response.raise_for_status()
             data: dict = (await response.json())["data"]
@@ -293,6 +303,8 @@ class BLiveClient:
             self.room_id = int(data["live_room"]["roomid"])
 
     async def stop_and_close(self):
+        if self._session is None:
+            raise RuntimeError("session未初始化")
         await self._session.close()
         await self.stop()
 
@@ -333,6 +345,8 @@ class BLiveClient:
             "reply_uname": reply_uname,
             "bubble": 0,
         }
+        if self._session is None:
+            raise RuntimeError("session未初始化")
         async with self._session.post("https://api.live.bilibili.com/msg/send", data=data) as response:
             response.raise_for_status()
             data: dict = await response.json()
@@ -361,6 +375,8 @@ class BLiveClient:
 
     async def _get_login_mid(self) -> int:
         try:
+            if self._session is None:
+                raise RuntimeError("session未初始化")
             async with self._session.get("https://api.bilibili.com/x/space/myinfo") as response:
                 response.raise_for_status()
                 data = await response.json()

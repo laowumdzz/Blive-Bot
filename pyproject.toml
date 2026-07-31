@@ -2,11 +2,9 @@
 name = "blive-bot"
 version = "0.1.0"
 description = "BiliBili直播间机器人"
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.11.7",
-    "asyncio>=3.4.3",
     "protobuf>=6.31.1",
     "apscheduler>=3.11.0",
     "uvloop>=0.22.1 ; sys_platform == 'linux'",
@@ -35,33 +33,36 @@ line-ending = "lf"
 
 [tool.ruff.lint]
 select = [
-    "F",     # Pyflakes
-    "W",     # pycodestyle warnings
-    "E",     # pycodestyle errors
-    "I",     # isort
-    "UP",    # pyupgrade
+    "F", # Pyflakes
+    "W", # pycodestyle warnings
+    "E", # pycodestyle errors
+    "I", # isort
+    "UP", # pyupgrade
     "ASYNC", # flake8-async
-    "C4",    # flake8-comprehensions
-    "T10",   # flake8-debugger
-    "T20",   # flake8-print
-    "PYI",   # flake8-pyi
-    "PT",    # flake8-pytest-style
-    "Q",     # flake8-quotes
-    "TID",   # flake8-tidy-imports
-    "RUF",   # Ruff-specific rules
+    "C4", # flake8-comprehensions
+    "T10", # flake8-debugger
+    "T20", # flake8-print
+    "PYI", # flake8-pyi
+    "PT", # flake8-pytest-style
+    "Q", # flake8-quotes
+    "TID", # flake8-tidy-imports
+    "RUF", # Ruff-specific rules
 ]
 ignore = [
-    "E402",   # module-import-not-at-top-of-file
-    "UP037",  # quoted-annotation
+    "E402", # module-import-not-at-top-of-file
+    "UP037", # quoted-annotation
     "RUF001", # ambiguous-unicode-character-string
     "RUF002", # ambiguous-unicode-character-docstring
     "RUF003", # ambiguous-unicode-character-comment
     "TID252", # relative-imports
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"main.py" = ["T201"]
+
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
-known-first-party = ["zhenxun", "tests/*"]
+known-first-party = ["utils", "tests", "live_streams"]
 extra-standard-library = ["typing_extensions"]
 
 [tool.ruff.lint.flake8-pytest-style]
@@ -74,14 +75,12 @@ keep-runtime-typing = true
 [tool.pyright]
 pythonVersion = "3.12"
 pythonPlatform = "All"
+venvPath = "."
+venv = ".venv"
 defineConstant = { PYDANTIC_V2 = true }
+typeCheckingMode = "standard"
+disableBytesTypePromotions = true
 executionEnvironments = [
-    { root = "./tests", extraPaths = [
-        "./",
-    ] },
+    { root = "./tests", extraPaths = ["./"] },
     { root = "./" },
 ]
-
-typeCheckingMode = "standard"
-reportShadowedImports = false
-disableBytesTypePromotions = true

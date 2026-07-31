@@ -1,7 +1,9 @@
 """消息模板"""
 import abc
 import base64
+import enum
 import json
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
@@ -18,7 +20,7 @@ __all__ = [
     "LikeUpdateMessage",
     "LoginNoticeMessage",
     "MessageInterface",
-    "MessageInterface",
+    "MsgType",
     "SuperChatDeleteMessage",
     "SuperChatMessage",
     "UserToastMessage",
@@ -40,7 +42,7 @@ class GeneralMessage(MessageInterface):
     通用消息
     """
 
-    raw_message: dict = None
+    raw_message: dict | None = None
     """原始消息"""
 
     @classmethod
@@ -54,7 +56,7 @@ class LoginNoticeMessage(MessageInterface):
     未登录提示日志
     """
 
-    message: str = None
+    message: str | None = None
     """提示信息"""
 
     @classmethod
@@ -68,11 +70,11 @@ class WatchedChangeMessage(MessageInterface):
     观看人数
     """
 
-    num: int = None
+    num: int | None = None
     """看过人数"""
-    text_small: str = None
+    text_small: str | None = None
     """num的字符串格式"""
-    text_large: str = None
+    text_large: str | None = None
     """格式化后中文格式: xxx人看过"""
 
     @classmethod
@@ -90,77 +92,77 @@ class DanmakuMessage(MessageInterface):
     弹幕消息
     """
 
-    mode: int = None
+    mode: int | None = None
     """弹幕显示模式（滚动、顶部、底部）"""
-    font_size: int = None
+    font_size: int | None = None
     """字体尺寸"""
-    color: int = None
+    color: int | None = None
     """颜色"""
-    timestamp: int = None
+    timestamp: int | None = None
     """时间戳（毫秒）"""
-    rnd: int = None
+    rnd: int | None = None
     """随机数，前端叫作弹幕ID，可能是去重用的"""
-    uid_crc32: str = None
+    uid_crc32: str | None = None
     """用户ID文本的CRC32"""
-    msg_type: int = None
+    msg_type: int | None = None
     """是否礼物弹幕（节奏风暴）"""
-    bubble: int = None
+    bubble: int | None = None
     """右侧评论栏气泡"""
-    dm_type: int = None
+    dm_type: int | None = None
     """弹幕类型，0文本，1表情，2语音"""
-    emoticon_options: dict | str = None
+    emoticon_options: dict | str | None = None
     """表情参数"""
-    voice_config: dict | str = None
+    voice_config: dict | str | None = None
     """语音参数"""
-    mode_info: dict = None
+    mode_info: dict | None = None
     """一些附加参数"""
 
-    msg: str = None
+    msg: str | None = None
     """弹幕内容"""
 
-    uid: int = None
+    uid: int | None = None
     """用户ID"""
-    uname: str = None
+    uname: str | None = None
     """用户名"""
-    admin: int = None
+    admin: int | None = None
     """是否房管"""
-    vip: int = None
+    vip: int | None = None
     """是否月费老爷"""
-    svip: int = None
+    svip: int | None = None
     """是否年费老爷"""
-    urank: int = None
+    urank: int | None = None
     """用户身份，用来判断是否正式会员，猜测非正式会员为5000，正式会员为10000"""
-    mobile_verify: int = None
+    mobile_verify: int | None = None
     """是否绑定手机"""
-    uname_color: str = None
+    uname_color: str | None = None
     """用户名颜色"""
 
-    medal_level: str = None
+    medal_level: int | str | None = None
     """勋章等级"""
-    medal_name: str = None
+    medal_name: str | None = None
     """勋章名"""
-    runame: str = None
+    runame: str | None = None
     """勋章房间主播名"""
-    medal_room_id: int = None
+    medal_room_id: int | None = None
     """勋章房间ID"""
-    mcolor: int = None
+    mcolor: int | None = None
     """勋章颜色"""
-    special_medal: str = None
+    special_medal: int | str | None = None
     """特殊勋章"""
 
-    user_level: int = None
+    user_level: int | None = None
     """用户等级"""
-    ulevel_color: int = None
+    ulevel_color: int | None = None
     """用户等级颜色"""
-    ulevel_rank: str = None
+    ulevel_rank: str | None = None
     """用户等级排名，>50000时为'>50000'"""
 
-    old_title: str = None
+    old_title: str | None = None
     """旧头衔"""
-    title: str = None
+    title: str | None = None
     """头衔"""
 
-    privilege_type: int = None
+    privilege_type: int | None = None
     """舰队类型，0非舰队，1总督，2提督，3舰长"""
 
     @classmethod
@@ -227,7 +229,7 @@ class DanmakuMessage(MessageInterface):
         if isinstance(self.emoticon_options, dict):
             return self.emoticon_options
         try:
-            return json.loads(self.emoticon_options)
+            return json.loads(self.emoticon_options or "")
         except (json.JSONDecodeError, TypeError):
             return {}
 
@@ -244,7 +246,7 @@ class DanmakuMessage(MessageInterface):
         if isinstance(self.voice_config, dict):
             return self.voice_config
         try:
-            return json.loads(self.voice_config)
+            return json.loads(self.voice_config or "")
         except (json.JSONDecodeError, TypeError):
             return {}
 
@@ -254,35 +256,35 @@ class GiftMessage(MessageInterface):
     礼物消息
     """
 
-    gift_name: str = None
+    gift_name: str | None = None
     """礼物名"""
-    num: int = None
+    num: int | None = None
     """数量"""
-    uname: str = None
+    uname: str | None = None
     """用户名"""
-    face: str = None
+    face: str | None = None
     """用户头像URL"""
-    guard_level: int = None
+    guard_level: int | None = None
     """舰队等级，0非舰队，1总督，2提督，3舰长"""
-    uid: int = None
+    uid: int | None = None
     """用户ID"""
-    timestamp: int = None
+    timestamp: int | None = None
     """时间戳"""
-    gift_id: int = None
+    gift_id: int | None = None
     """礼物ID"""
-    gift_type: int = None
+    gift_type: int | None = None
     """礼物类型（未知）"""
-    action: str = None
+    action: str | None = None
     """目前遇到的有'喂食'、'赠送'"""
-    price: int = None
+    price: int | None = None
     """礼物单价瓜子数"""
-    rnd: str = None
+    rnd: str | None = None
     """随机数，可能是去重用的。有时是时间戳+去重ID，有时是UUID"""
-    coin_type: str = None
+    coin_type: str | None = None
     """瓜子类型，'silver'或'gold'，1000金瓜子 = 1元"""
-    total_coin: int = None
+    total_coin: int | None = None
     """总瓜子数"""
-    tid: str = None
+    tid: str | None = None
     """可能是事务ID，有时和rnd相同"""
 
     @classmethod
@@ -312,23 +314,23 @@ class GuardBuyMessage(MessageInterface):
     上舰消息
     """
 
-    uid: int = None
+    uid: int | None = None
     """用户ID"""
-    username: str = None
+    username: str | None = None
     """用户名"""
-    guard_level: int = None
+    guard_level: int | None = None
     """舰队等级，0非舰队，1总督，2提督，3舰长"""
-    num: int = None
+    num: int | None = None
     """数量"""
-    price: int = None
+    price: int | None = None
     """单价金瓜子数"""
-    gift_id: int = None
+    gift_id: int | None = None
     """礼物ID"""
-    gift_name: str = None
+    gift_name: str | None = None
     """礼物名"""
-    start_time: int = None
+    start_time: int | None = None
     """开始时间戳，和结束时间戳相同"""
-    end_time: int = None
+    end_time: int | None = None
     """结束时间戳，和开始时间戳相同"""
 
     @classmethod
@@ -352,43 +354,43 @@ class SuperChatMessage(MessageInterface):
     醒目留言消息
     """
 
-    price: int = None
+    price: int | None = None
     """价格（人民币）"""
-    message: str = None
+    message: str | None = None
     """消息"""
-    message_trans: str = None
+    message_trans: str | None = None
     """消息日文翻译（目前只出现在SUPER_CHAT_MESSAGE_JPN）"""
-    start_time: int = None
+    start_time: int | None = None
     """开始时间戳"""
-    end_time: int = None
+    end_time: int | None = None
     """结束时间戳"""
-    time: int = None
+    time: int | None = None
     """剩余时间（约等于 结束时间戳 - 开始时间戳）"""
-    id: int = None
+    id: int | None = None
     """醒目留言ID，删除时用"""
-    gift_id: int = None
+    gift_id: int | None = None
     """礼物ID"""
-    gift_name: str = None
+    gift_name: str | None = None
     """礼物名"""
-    uid: int = None
+    uid: int | None = None
     """用户ID"""
-    uname: str = None
+    uname: str | None = None
     """用户名"""
-    face: str = None
+    face: str | None = None
     """用户头像URL"""
-    guard_level: int = None
+    guard_level: int | None = None
     """舰队等级，0非舰队，1总督，2提督，3舰长"""
-    user_level: int = None
+    user_level: int | None = None
     """用户等级"""
-    background_bottom_color: str = None
+    background_bottom_color: str | None = None
     """底部背景色，'#rrggbb'"""
-    background_color: str = None
+    background_color: str | None = None
     """背景色，'#rrggbb'"""
-    background_icon: str = None
+    background_icon: str | None = None
     """背景图标"""
-    background_image: str = None
+    background_image: str | None = None
     """背景图URL"""
-    background_price_color: str = None
+    background_price_color: str | None = None
     """背景价格颜色，'#rrggbb'"""
 
     @classmethod
@@ -422,7 +424,7 @@ class SuperChatDeleteMessage(MessageInterface):
     删除醒目留言消息
     """
 
-    ids: list[int] = None
+    ids: list[int] | None = None
     """醒目留言ID数组"""
 
     @classmethod
@@ -435,13 +437,13 @@ class LikeClickMessage(MessageInterface):
     """
     用户点赞事件
     """
-    uname: str = None
+    uname: str | None = None
     """用户名"""
-    uid: int = None
+    uid: int | None = None
     """用户MID"""
-    face: str = None
+    face: str | None = None
     """用户头像URL"""
-    like_text: str = None
+    like_text: str | None = None
     """提示信息"""
 
     @classmethod
@@ -459,7 +461,7 @@ class LikeUpdateMessage(MessageInterface):
     """
     点赞数量更新
     """
-    click_count: int = None
+    click_count: int | None = None
     """点赞数"""
 
     @classmethod
@@ -474,27 +476,27 @@ class UserToastMessage(MessageInterface):
     用户购买 舰长/提督/总督 后的庆祝消息, 内容包含用户陪伴天数
     """
 
-    anchor_show: bool = None
+    anchor_show: bool | None = None
     """是否显示"""
-    color: str = None
+    color: str | None = None
     """颜色"""
-    gift_id: int = None
+    gift_id: int | None = None
     """礼物ID"""
-    guard_level: int = None
+    guard_level: int | None = None
     """大航海等级: 1:总督/2:提督/3:舰长"""
-    num: int = None
+    num: int | None = None
     """上舰个数"""
-    price: int = None
+    price: int | None = None
     """实际金瓜子标价 CNY*1000"""
-    role_name: str = None
+    role_name: str | None = None
     """身份名称"""
-    toast_msg: str = None
+    toast_msg: str | None = None
     """庆祝消息正文"""
-    uid: int = None
+    uid: int | None = None
     """上舰人MID"""
-    unit: str = None
+    unit: str | None = None
     """购买身份时间单位"""
-    username: str = None
+    username: str | None = None
     """用户名"""
 
     @classmethod
@@ -520,13 +522,13 @@ class InteractWordMessage(MessageInterface):
     入场消息
     """
 
-    uname: str = None
+    uname: str | None = None
     """用户名"""
-    uid: int = None
+    uid: int | None = None
     """用户MID"""
-    face: str = None
+    face: str | None = None
     """用户头像URL"""
-    msg_type: int = None
+    msg_type: int | None = None
     """消息类型:1.为进场/2.为关注/3.为分享"""
 
     @classmethod
@@ -545,13 +547,13 @@ class InteractWordV2Message(MessageInterface):
     入场消息V2
     """
 
-    uname: str = None
+    uname: str | None = None
     """用户名"""
-    uid: int = None
+    uid: int | None = None
     """用户MID"""
-    face: str = None
+    face: str | None = None
     """用户头像URL"""
-    msg_type: int = None
+    msg_type: int | None = None
     """消息类型:1.为进场/2.为关注/3.为分享"""
 
     @classmethod
@@ -565,3 +567,36 @@ class InteractWordV2Message(MessageInterface):
             msg_type=pb.msg_type,
             face="fyex6922"
         )
+
+
+def _all_subclasses(cls: type) -> list[type]:
+    """递归获取所有子类"""
+    result: list[type] = []
+    for subclass in cls.__subclasses__():
+        result.append(subclass)
+        result.extend(_all_subclasses(subclass))
+    return result
+
+
+if TYPE_CHECKING:
+    # 静态类型检查器可见的显式定义, 保证属性访问可被解析
+    class MsgType(enum.Enum):
+        GeneralMessage = GeneralMessage
+        LoginNoticeMessage = LoginNoticeMessage
+        WatchedChangeMessage = WatchedChangeMessage
+        DanmakuMessage = DanmakuMessage
+        GiftMessage = GiftMessage
+        GuardBuyMessage = GuardBuyMessage
+        SuperChatMessage = SuperChatMessage
+        SuperChatDeleteMessage = SuperChatDeleteMessage
+        LikeClickMessage = LikeClickMessage
+        LikeUpdateMessage = LikeUpdateMessage
+        UserToastMessage = UserToastMessage
+        InteractWordMessage = InteractWordMessage
+        InteractWordV2Message = InteractWordV2Message
+else:
+    # 运行时自动从所有 MessageInterface 子类生成消息类型枚举
+    MsgType = enum.Enum(
+        "MsgType",
+        {cls.__name__: cls for cls in _all_subclasses(MessageInterface)}
+    )
