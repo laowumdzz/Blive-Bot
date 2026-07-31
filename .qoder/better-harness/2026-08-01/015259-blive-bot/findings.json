@@ -1,0 +1,151 @@
+{
+  "summary": {
+    "projectName": "Blive-Bot",
+    "locale": "zh-CN",
+    "modelId": "agent-work-loop-v4",
+    "reportContractVersion": 25,
+    "overview": "项目有清晰的 AGENTS.md 上下文地图和可运行的验证路由（pytest、ruff、pyright），但核心解析路径缺少错误处理和测试覆盖，且无机械质量门禁强制执行检查。",
+    "aiAgentPractice": {
+      "inspectedSurfaces": [
+        "Rules"
+      ],
+      "coverageRows": [
+        {
+          "surface": "Rules",
+          "scopes": [
+            "Project"
+          ],
+          "count": 1,
+          "paths": [
+            "AGENTS.md"
+          ]
+        },
+        {
+          "surface": "Custom Agents",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        }
+      ]
+    },
+    "assignmentSummaries": [],
+    "dimensions": [
+      {
+        "id": "task-understanding",
+        "label": "任务理解",
+        "score": 68,
+        "summary": "AGENTS.md 提供清晰的模块边界和核心风险区域文档，但缺少 pytest 测试运行命令。",
+        "findingRefs": [
+          "agents-md-missing-pytest-command"
+        ]
+      },
+      {
+        "id": "controlled-execution",
+        "label": "可控执行",
+        "score": 62,
+        "summary": "uv 环境和启动命令可用且已验证，但缺少诊断命令和显式权限边界。",
+        "findingRefs": []
+      },
+      {
+        "id": "change-validation",
+        "label": "改动验证",
+        "score": 52,
+        "summary": "路由层测试覆盖良好（21 个测试），但核心解析路径和 WebSocket 生命周期无测试，异常静默吞没且日志缺少关联 ID。",
+        "findingRefs": [
+          "from-command-silent-exception",
+          "core-path-test-coverage-gap",
+          "missing-message-correlation-id"
+        ]
+      },
+      {
+        "id": "reliable-delivery",
+        "label": "可靠交付",
+        "score": 42,
+        "summary": "无 CI 管道、无 pre-commit、无合并门禁，lint 错误持续存在于生成文件中。",
+        "findingRefs": [
+          "no-mechanical-quality-gates"
+        ]
+      },
+      {
+        "id": "learning-capture",
+        "label": "经验沉淀",
+        "score": 35,
+        "summary": "会话窗口证据不足（0 变更、0 验证、0 结果信号），学习捕获维度为未观测状态，保留在证据边界中。",
+        "findingRefs": []
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "from-command-silent-exception",
+      "title": "from_command 解析异常被静默吞没，单条异常消息可终止房间消息处理",
+      "severity": "Medium",
+      "reason": "13 个消息模型的 from_command() 方法使用直接字典键访问（如 data[\"giftName\"]、info[0][1]），B 站数据格式变更将触发 KeyError。该异常不在 _on_message 的 try/except 捕获范围内。创建 task 的代码（live_streams/__init__.py L145-147）仅有 discard done_callback，无异常日志回调。后果：单条格式异常消息可静默终止该房间的消息处理 task，无日志、无告警、无恢复。AGENTS.md 已将 from_command 列为核心变更风险区域。",
+      "expectedOutput": [
+        "from_command 解析异常被捕获并记录日志，不再静默终止消息处理 task"
+      ],
+      "expectedArtifact": "Error handling fix",
+      "aiFixPrompt": "/better-harness fix this issue\n\n在 live_streams/__init__.py 的 task 创建处（L145-147）添加异常日志 done_callback，使 task 因未捕获异常失败时记录错误日志。同时在 live_streams/handler.py 的 handle() 方法中（L110）为 from_command 调用添加 try/except 捕获 KeyError 等解析异常，记录警告日志并跳过该消息而非终止处理。\n\n## Validation\n\n- 运行 uv run pytest tests/test_handler.py 确认路由测试通过\n- 运行 uv run pyright 确认类型检查通过\n- 添加一个测试验证 from_command 抛出 KeyError 时被捕获且记录日志而非静默失败",
+      "dimensionRefs": [
+        "change-validation"
+      ]
+    },
+    {
+      "id": "core-path-test-coverage-gap",
+      "title": "核心解析路径与 WebSocket 生命周期缺乏测试覆盖",
+      "severity": "Medium",
+      "reason": "tests/test_handler.py（21 个测试）仅覆盖 Handler 路由逻辑。13 个模型的 from_command() 方法（含数组索引访问、protobuf 反序列化、嵌套字典访问）无任何单元测试。BLiveClient 的 WebSocket 连接生命周期（认证、心跳、brotli 解压、重连）无测试。SignedParams WBI 签名和 ConfigManage 配置加载无测试。已发现两个未被测试捕获的缺陷：InteractWordV2Message.from_command 中 face 字段硬编码为 \"fyex6922\"（models.py L568，疑似调试残留）；SignedParams.close() 中 cls.session = None 应为 cls._session = None（utils/tools.py L192）。后果：agent 修改 from_command 字段映射或 WebSocket 逻辑后，无法通过测试验证正确性。",
+      "expectedOutput": [
+        "from_command 解析路径有测试覆盖，已发现的代码缺陷被修复，agent 修改后可通过测试验证正确性"
+      ],
+      "expectedArtifact": "Unit tests",
+      "aiFixPrompt": "/better-harness fix this issue\n\n为 live_streams/models.py 中的 from_command() 方法添加单元测试，至少覆盖核心模型（如 InteractWordV2Message、GiftMessage）的正常解析和异常场景。同时修复两个已发现缺陷：models.py L568 的 face=\"fyex6922\" 硬编码（应使用 pb.face 或移除该字段）和 utils/tools.py L192 的 cls.session = None（应为 cls._session = None）。\n\n## Validation\n\n- 运行 uv run pytest tests/ 确认所有测试通过\n- 运行 uv run pyright 确认类型检查通过",
+      "dimensionRefs": [
+        "change-validation"
+      ]
+    },
+    {
+      "id": "no-mechanical-quality-gates",
+      "title": "无机械质量门禁强制执行检查，lint 错误持续存在",
+      "severity": "Medium",
+      "reason": "项目无 CI 管道（.github/ 不存在）、无 pre-commit 钩子、无 git hooks。ruff check 报告 14 个错误（全部在 protoc 生成的 utils/InteractWordV2.pyi 中，E501 行过长），持续存在于代码库中。pyproject.toml 的 per-file-ignores 未对 .pyi 文件配置忽略规则。后果：agent 修改代码后无自动质量检查，lint 错误积累，新引入的问题可能被现有错误掩盖。质量门禁仅依赖人工手动运行 ruff、pyright 和 pytest。",
+      "expectedOutput": [
+        "ruff check 报告 0 errors，变更后有机械门禁自动运行检查"
+      ],
+      "expectedArtifact": "Quality gate configuration",
+      "aiFixPrompt": "/better-harness fix this issue\n\n在 pyproject.toml 的 ruff 配置中为 utils/InteractWordV2.pyi 添加 per-file-ignore 规则（E501），消除 14 个已知 lint 错误。考虑添加 pre-commit 配置文件（.pre-commit-config.yaml）或 GitHub Actions CI 管道（.github/workflows/ci.yml），在变更时自动运行 uv run ruff check .、uv run pyright 和 uv run pytest。\n\n## Validation\n\n- 运行 uv run ruff check . 确认 0 errors\n- 运行 uv run pyright 确认 0 errors\n- 运行 uv run pytest tests/ 确认所有测试通过",
+      "dimensionRefs": [
+        "reliable-delivery"
+      ]
+    },
+    {
+      "id": "missing-message-correlation-id",
+      "title": "日志缺少消息级关联 ID，运行时调试链断裂",
+      "severity": "Low",
+      "reason": "消息处理链（WebSocket 收包 → brotli 解压 → JSON 解析 → CMD 路由 → from_command 解析 → 回调执行）中无 request/trace/message ID 贯穿。日志中仅有 room_id 前缀，单条消息从接收到处理完成无法跨函数关联。Handler.handle() 中的 asyncio.gather() 未设 return_exceptions=True（handler.py L113），回调异常与原始消息无法关联。后果：agent 调试运行时问题时，无法从日志重建单条消息的完整处理路径，无法定位失败发生在解析还是回调阶段。",
+      "expectedOutput": [
+        "日志中可通过消息级 ID 关联单条消息的完整处理路径"
+      ],
+      "expectedArtifact": "Logging correlation",
+      "aiFixPrompt": "/better-harness fix this issue\n\n在消息处理链中引入消息级关联 ID（如递增序号或 UUID），在 live_streams/__init__.py 的 _on_message、_parse_message 和 live_streams/handler.py 的 handle() 方法的日志中记录该 ID，使单条消息的处理路径可从日志重建。同时为 asyncio.gather() 添加 return_exceptions=True 并记录失败的回调异常。\n\n## Validation\n\n- 运行 uv run pytest tests/test_handler.py 确认路由测试通过\n- 运行 uv run pyright 确认类型检查通过",
+      "dimensionRefs": [
+        "change-validation"
+      ]
+    },
+    {
+      "id": "agents-md-missing-pytest-command",
+      "title": "AGENTS.md 文档缺少 pytest 测试运行命令",
+      "severity": "Low",
+      "reason": "AGENTS.md 的「运行与测试命令」部分列出 uv run python main.py、uv run ruff check .、uv run pyright，但未包含 uv run pytest。项目有 tests/test_handler.py（21 个测试，已验证可通过 pytest 运行），但文档未记录如何运行测试。后果：agent 遵循 AGENTS.md 时可能不会发现或运行测试套件，遗漏验证步骤。AGENTS.md 作为唯一的项目规则文件，其命令段不完整直接影响 agent 的验证行为。",
+      "expectedOutput": [
+        "AGENTS.md 包含完整的测试运行命令，agent 可发现并执行测试套件"
+      ],
+      "expectedArtifact": "Documentation update",
+      "aiFixPrompt": "/better-harness fix this issue\n\n在 AGENTS.md 的「运行与测试命令」代码块中添加 uv run pytest 命令，与现有的 uv run ruff check . 和 uv run pyright 并列。添加注释说明用于运行单元测试。\n\n## Validation\n\n- 运行 uv run pytest tests/ 确认测试可执行\n- 确认 AGENTS.md 更新后运行与测试命令段包含 pytest",
+      "dimensionRefs": [
+        "task-understanding"
+      ]
+    }
+  ]
+}

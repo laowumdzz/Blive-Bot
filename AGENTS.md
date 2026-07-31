@@ -53,6 +53,9 @@ uv run ruff check .
 
 # 类型检查
 uv run pyright
+
+# 运行单元测试
+uv run pytest tests/
 ```
 
 ## 核心变更风险区域

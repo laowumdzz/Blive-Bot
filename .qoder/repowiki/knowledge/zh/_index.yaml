@@ -3,7 +3,7 @@ schema_version: 1
 locale: zh-CN
 branch: main
 nodes_managed: true
-exported_at: "2026-07-31T17:27:06Z"
+exported_at: "2026-07-31T18:00:03Z"
 modules:
     "":
         dir_name: Blive-Bot 主程序入口与项目配置
