@@ -218,10 +218,98 @@ class TestDanmakuMessageFromCommand:
         assert msg.mcolor == 0
         assert msg.special_medal == 0
 
+    def test_full_field_mapping(self):
+        """验证 DanmakuMessage 所有字段都被正确映射。"""
+        msg = DanmakuMessage.from_command({"info": _danmaku_info(with_medal=True)})
+
+        # info[0] 派生字段
+        assert msg.timestamp == 1700000000
+        assert msg.rnd == 12345
+        assert msg.uid_crc32 == "crc32"
+        assert msg.msg_type == 0
+        assert msg.bubble == 0
+        assert msg.dm_type == 0
+        assert msg.emoticon_options == ""
+        assert msg.voice_config == ""
+        assert msg.mode_info == {}
+
+        # info[2] 派生字段
+        assert msg.admin == 0
+        assert msg.vip == 0
+        assert msg.svip == 0
+        assert msg.urank == 10000
+        assert msg.mobile_verify == 1
+        assert msg.uname_color == ""
+
+        # info[4] 派生字段（用户等级）
+        assert msg.user_level == 20
+        assert msg.ulevel_color == 1
+        assert msg.ulevel_rank == ">50000"
+
+        # info[5] 派生字段（头衔）
+        assert msg.old_title == "旧头衔"
+        assert msg.title == "新头衔"
+
+    def test_room_id_defaults_to_none(self):
+        """from_command 未设置 room_id 时应为 None。"""
+        msg = DanmakuMessage.from_command({"info": _danmaku_info()})
+        assert msg.room_id is None
+
     def test_missing_info_raises_keyerror(self):
         """缺失 info 键应抛出 KeyError。"""
         with pytest.raises(KeyError):
             DanmakuMessage.from_command({})
+
+
+# ---------------------------------------------------------------------------
+# DanmakuMessage 属性
+# ---------------------------------------------------------------------------
+
+
+class TestDanmakuMessageProperties:
+    """DanmakuMessage.emoticon_options_dict / voice_config_dict 属性。"""
+
+    def test_emoticon_options_dict_from_dict(self):
+        """emoticon_options 为 dict 时应直接返回。"""
+        data = {"bulge_display": 0, "emoticon_unique": "official_13"}
+        msg = DanmakuMessage(emoticon_options=data)
+        assert msg.emoticon_options_dict == data
+
+    def test_emoticon_options_dict_from_json_string(self):
+        """emoticon_options 为 JSON 字符串时应解析为 dict。"""
+        msg = DanmakuMessage(emoticon_options='{"key": "value"}')
+        assert msg.emoticon_options_dict == {"key": "value"}
+
+    def test_emoticon_options_dict_invalid_json(self):
+        """emoticon_options 为无效 JSON 时应返回空 dict。"""
+        msg = DanmakuMessage(emoticon_options="not json")
+        assert msg.emoticon_options_dict == {}
+
+    def test_emoticon_options_dict_none(self):
+        """emoticon_options 为 None 时应返回空 dict。"""
+        msg = DanmakuMessage(emoticon_options=None)
+        assert msg.emoticon_options_dict == {}
+
+    def test_voice_config_dict_from_dict(self):
+        """voice_config 为 dict 时应直接返回。"""
+        data = {"voice_url": "https://example.com/voice.wav", "text": "你好"}
+        msg = DanmakuMessage(voice_config=data)
+        assert msg.voice_config_dict == data
+
+    def test_voice_config_dict_from_json_string(self):
+        """voice_config 为 JSON 字符串时应解析为 dict。"""
+        msg = DanmakuMessage(voice_config='{"text": "你好"}')
+        assert msg.voice_config_dict == {"text": "你好"}
+
+    def test_voice_config_dict_invalid_json(self):
+        """voice_config 为无效 JSON 时应返回空 dict。"""
+        msg = DanmakuMessage(voice_config="{invalid")
+        assert msg.voice_config_dict == {}
+
+    def test_voice_config_dict_none(self):
+        """voice_config 为 None 时应返回空 dict。"""
+        msg = DanmakuMessage(voice_config=None)
+        assert msg.voice_config_dict == {}
 
 
 # ---------------------------------------------------------------------------

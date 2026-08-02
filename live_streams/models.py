@@ -3,7 +3,7 @@ import abc
 import base64
 import enum
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel
 
@@ -33,7 +33,7 @@ class MessageInterface(abc.ABC, BaseModel):
 
     @classmethod
     @abc.abstractmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         raise NotImplementedError("from_command")
 
 
@@ -46,7 +46,7 @@ class GeneralMessage(MessageInterface):
     """原始消息"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(raw_message=data)
 
@@ -60,7 +60,7 @@ class LoginNoticeMessage(MessageInterface):
     """提示信息"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(message=data["notice_msg"])
 
@@ -78,7 +78,7 @@ class WatchedChangeMessage(MessageInterface):
     """格式化后中文格式: xxx人看过"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(
             num=data["num"],
@@ -166,7 +166,7 @@ class DanmakuMessage(MessageInterface):
     """舰队类型，0非舰队，1总督，2提督，3舰长"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         info = raw_msg["info"]
         if len(info[3]) != 0:
             medal_level = info[3][0]
@@ -288,7 +288,7 @@ class GiftMessage(MessageInterface):
     """可能是事务ID，有时和rnd相同"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(
             gift_name=data["giftName"],
@@ -334,7 +334,7 @@ class GuardBuyMessage(MessageInterface):
     """结束时间戳，和开始时间戳相同"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(
             uid=data["uid"],
@@ -394,7 +394,7 @@ class SuperChatMessage(MessageInterface):
     """背景价格颜色，'#rrggbb'"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(
             price=data["price"],
@@ -428,7 +428,7 @@ class SuperChatDeleteMessage(MessageInterface):
     """醒目留言ID数组"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(ids=data["ids"])
 
@@ -447,7 +447,7 @@ class LikeClickMessage(MessageInterface):
     """提示信息"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(
             uname=data["uname"],
@@ -465,7 +465,7 @@ class LikeUpdateMessage(MessageInterface):
     """点赞数"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(click_count=data["click_count"])
 
@@ -500,7 +500,7 @@ class UserToastMessage(MessageInterface):
     """用户名"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(
             anchor_show=data["anchor_show"],
@@ -532,7 +532,7 @@ class InteractWordMessage(MessageInterface):
     """消息类型:1.为进场/2.为关注/3.为分享"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         return cls(
             uname=data["uname"],
@@ -557,7 +557,7 @@ class InteractWordV2Message(MessageInterface):
     """消息类型:1.为进场/2.为关注/3.为分享"""
 
     @classmethod
-    def from_command(cls, raw_msg: dict):
+    def from_command(cls, raw_msg: dict) -> Self:
         data = raw_msg["data"]
         pb = InteractWordV2.INTERACT_WORD_V2()
         pb.ParseFromString(base64.b64decode(data["pb"]))

@@ -19,7 +19,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pyright>=1.1.408",
+    "pyrefly>=0.27.0",
     "pytest>=9.1.1",
     "ruff>=0.15.0",
 ]
@@ -65,7 +65,6 @@ ignore = [
 "main.py" = ["T201"]
 "utils/InteractWordV2.py" = ["E501"]  # protoc 自动生成的 protobuf 代码
 "utils/InteractWordV2.pyi" = ["E501"]  # protoc 自动生成的类型存根
-"tests/test.py" = ["E501", "T201"]  # 独立验证脚本（含 base64 字符串与 print）
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
@@ -79,18 +78,19 @@ mark-parentheses = false
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
 
-[tool.pyright]
-pythonVersion = "3.12"
-pythonPlatform = "All"
-venvPath = "."
-venv = ".venv"
-defineConstant = { PYDANTIC_V2 = true }
-typeCheckingMode = "standard"
-disableBytesTypePromotions = true
-executionEnvironments = [
-    { root = "./tests", extraPaths = ["./"] },
-    { root = "./" },
+[tool.pyrefly]
+python-version = "3.12"
+python-platform = "all"
+project-includes = ["**/*.py"]
+project-excludes = [
+    "**/.venv/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**",
+    "**/.ruff_cache/**",
 ]
+search-path = ["./"]
+# 允许 pyright: ignore 注释被 pyrefly 识别
+permissive-ignores = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

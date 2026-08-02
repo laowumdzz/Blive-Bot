@@ -52,7 +52,7 @@ uv run python main.py
 uv run ruff check .
 
 # 类型检查
-uv run pyright
+uv run pyrefly check
 
 # 运行单元测试
 uv run pytest tests/
