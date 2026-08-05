@@ -23,8 +23,7 @@ def convert_str_to_list_int(v) -> list[int] | None:
         if isinstance(result, list) and all(isinstance(i, int) for i in result):
             return result
     except (ValueError, SyntaxError):
-        logger.error(
-            "LIVE_ROOM_MID must be a valid list of integers, e.g., '[1, 2, 3]'")
+        logger.error("LIVE_ROOM_MID must be a valid list of integers, e.g., '[1, 2, 3]'")
         raise
     return None
 
@@ -107,8 +106,7 @@ async def get_live_status():
         processed_status_results = []
         for i, result in enumerate(status_results):
             if isinstance(result, Exception):
-                logger.opt(exception=result).error(
-                    f"获取状态URL失败. UID: [{UIDS[i]}] | URL: {live_status_urls[i]}")
+                logger.opt(exception=result).error(f"获取状态URL失败. UID: [{UIDS[i]}] | URL: {live_status_urls[i]}")
                 processed_status_results.append(None)
             else:
                 processed_status_results.append(result)
@@ -116,8 +114,10 @@ async def get_live_status():
         processed_user_card_results = []
         for i, result in enumerate(user_card_results):
             if isinstance(result, Exception):
-                logger.warning(f"获取用户名称失败,回退到使用UID显示. 错误原因: {type(result).__name__}: {result} | "
-                               "URL: {user_care_urls[i]}")
+                logger.warning(
+                    f"获取用户名称失败,回退到使用UID显示. 错误原因: {type(result).__name__}: {result} | "
+                    "URL: {user_care_urls[i]}"
+                )
                 processed_user_card_results.append(None)
             else:
                 processed_user_card_results.append(result)
@@ -164,6 +164,7 @@ async def run():
 if __name__ == "__main__":
     try:
         import uvloop  # pyright: ignore[reportMissingImports]
+
         uvloop.run(run())
     except ModuleNotFoundError:
         asyncio.run(run())

@@ -314,11 +314,21 @@ class TestMessageRouting:
         message = {
             "cmd": "SEND_GIFT",
             "data": {
-                "giftName": "辣条", "num": 5, "uname": "送礼用户",
-                "face": "https://example.com/face.png", "guard_level": 0,
-                "uid": 111, "timestamp": 1700000000, "giftId": 1,
-                "giftType": 0, "action": "馈食", "price": 100,
-                "rnd": "rnd-1", "coin_type": "silver", "total_coin": 500, "tid": "tid-1",
+                "giftName": "辣条",
+                "num": 5,
+                "uname": "送礼用户",
+                "face": "https://example.com/face.png",
+                "guard_level": 0,
+                "uid": 111,
+                "timestamp": 1700000000,
+                "giftId": 1,
+                "giftType": 0,
+                "action": "馈食",
+                "price": 100,
+                "rnd": "rnd-1",
+                "coin_type": "silver",
+                "total_coin": 500,
+                "tid": "tid-1",
             },
         }
         _run(Handler.handle(ROOM_ID, message))
@@ -361,7 +371,8 @@ class TestMessageRouting:
         message = {
             "cmd": "INTERACT_WORD",
             "data": {
-                "uname": "进场用户", "uid": 333,
+                "uname": "进场用户",
+                "uid": 333,
                 "uinfo": {"base": {"face": "https://example.com/enter.jpg"}},
                 "msg_type": 1,
             },
@@ -399,13 +410,25 @@ class TestMessageRouting:
         message = {
             "cmd": "SUPER_CHAT_MESSAGE",
             "data": {
-                "price": 50, "message": "醒目留言", "message_trans": "",
-                "start_time": 1700000000, "end_time": 1700000060, "time": 60, "id": 7,
-                "gift": {"gift_id": 7, "gift_name": "醒目留言"}, "uid": 444,
-                "user_info": {"uname": "SC用户", "face": "https://example.com/sc.jpg",
-                              "guard_level": 0, "user_level": 30},
-                "background_bottom_color": "#000", "background_color": "#111",
-                "background_icon": "icon", "background_image": "",
+                "price": 50,
+                "message": "醒目留言",
+                "message_trans": "",
+                "start_time": 1700000000,
+                "end_time": 1700000060,
+                "time": 60,
+                "id": 7,
+                "gift": {"gift_id": 7, "gift_name": "醒目留言"},
+                "uid": 444,
+                "user_info": {
+                    "uname": "SC用户",
+                    "face": "https://example.com/sc.jpg",
+                    "guard_level": 0,
+                    "user_level": 30,
+                },
+                "background_bottom_color": "#000",
+                "background_color": "#111",
+                "background_icon": "icon",
+                "background_image": "",
                 "background_price_color": "#222",
             },
         }
@@ -449,9 +472,17 @@ class TestMessageRouting:
         message = {
             "cmd": "USER_TOAST_MSG",
             "data": {
-                "anchor_show": True, "color": "#fff", "gift_id": 1003,
-                "guard_level": 3, "num": 1, "price": 138000, "role_name": "舰长",
-                "toast_msg": "恭喜", "uid": 666, "unit": "月", "username": "上舰用户",
+                "anchor_show": True,
+                "color": "#fff",
+                "gift_id": 1003,
+                "guard_level": 3,
+                "num": 1,
+                "price": 138000,
+                "role_name": "舰长",
+                "toast_msg": "恭喜",
+                "uid": 666,
+                "unit": "月",
+                "username": "上舰用户",
             },
         }
         _run(Handler.handle(ROOM_ID, message))
@@ -472,9 +503,15 @@ class TestMessageRouting:
         message = {
             "cmd": "GUARD_BUY",
             "data": {
-                "uid": 777, "username": "舰长用户", "guard_level": 3, "num": 1,
-                "price": 138000, "gift_id": 1003, "gift_name": "舰长",
-                "start_time": 1700000000, "end_time": 1700000000,
+                "uid": 777,
+                "username": "舰长用户",
+                "guard_level": 3,
+                "num": 1,
+                "price": 138000,
+                "gift_id": 1003,
+                "gift_name": "舰长",
+                "start_time": 1700000000,
+                "end_time": 1700000000,
             },
         }
         _run(Handler.handle(ROOM_ID, message))
@@ -601,10 +638,15 @@ class TestFromCommandErrorHandling:
             # 先发送一条会触发 KeyError 的消息
             _run(Handler.handle(ROOM_ID, {"cmd": "WATCHED_CHANGE", "data": {}}))
             # 再发送一条正常消息
-            _run(Handler.handle(ROOM_ID, {
-                "cmd": "WATCHED_CHANGE",
-                "data": {"num": 100, "text_small": "100", "text_large": "100人看过"},
-            }))
+            _run(
+                Handler.handle(
+                    ROOM_ID,
+                    {
+                        "cmd": "WATCHED_CHANGE",
+                        "data": {"num": 100, "text_small": "100", "text_large": "100人看过"},
+                    },
+                )
+            )
 
             # 异常消息的回调不应被调用，正常消息的回调应被调用
             assert len(received) == 1

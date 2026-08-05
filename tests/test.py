@@ -48,9 +48,7 @@ def test_msg_type():
 def test_face_url():
     """用户头像URL应正确解析。"""
     msg = _decode_sample()
-    assert msg.user_info.base.face == (
-        "https://i0.hdslb.com/bfs/face/f60f93cb8b4cdfdcb8ccab39fad846a541ecf8cd.jpg"
-    )
+    assert msg.user_info.base.face == ("https://i0.hdslb.com/bfs/face/f60f93cb8b4cdfdcb8ccab39fad846a541ecf8cd.jpg")
 
 
 def test_invalid_protobuf_raises_decodeerror():

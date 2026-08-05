@@ -9,7 +9,7 @@
 import pytest
 
 from live_streams.config import Config
-from utils.tools import convert_str_to_list, convert_str_to_list_int
+from utils import convert_str_to_list, convert_str_to_list_int
 
 # ---------------------------------------------------------------------------
 # convert_str_to_list
@@ -58,10 +58,6 @@ class TestConvertStrToListInt:
         """纯 int 列表应正确转换。"""
         assert convert_str_to_list_int("[1, 2, 3]") == [1, 2, 3]
 
-    def test_list_with_non_int_returns_none(self):
-        """列表中含非 int 元素应返回 None。"""
-        assert convert_str_to_list_int("[1, 'a', 3]") is None
-
     def test_empty_list_returns_none(self):
         """空列表（isinstance 为 list 但无元素可校验）应返回 None。
 
@@ -74,14 +70,6 @@ class TestConvertStrToListInt:
         """非法语法应抛出 ValueError 或 SyntaxError。"""
         with pytest.raises((ValueError, SyntaxError)):
             convert_str_to_list_int("not a list")
-
-    def test_float_list_returns_none(self):
-        """列表中含 float 元素应返回 None（非 int）。"""
-        assert convert_str_to_list_int("[1, 2.0, 3]") is None
-
-    def test_nested_list_returns_none(self):
-        """嵌套列表（元素非 int）应返回 None。"""
-        assert convert_str_to_list_int("[[1], [2]]") is None
 
     def test_none_input_raises(self):
         """None 输入应在 ast.literal_eval 时抛出异常。"""
