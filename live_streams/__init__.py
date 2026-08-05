@@ -168,6 +168,7 @@ class BLiveClient:
                 if self._ws:
                     await self._ws.close()
                     self._ws = None
+                self.program_status = False
 
         async def run_with_reconnect(max_retries: int = 3, base_delay: float = 1.0):
             retry_count = 0
@@ -175,15 +176,14 @@ class BLiveClient:
                 try:
                     await run()
                 except asyncio.CancelledError:
-                    pass
+                    raise
                 except Exception as e:
                     logger.opt(exception=e).error(f"[{self.room_id}] 未预期异常")
                     retry_count += 1
                     await asyncio.sleep(min(base_delay * (2**retry_count), 60.0))
 
         if params:
-            self._Main_Task = asyncio.create_task(run())
-            self.program_status = True
+            self._Main_Task = asyncio.create_task(run_with_reconnect())
 
     async def _send_packet(self, packet_type: int, payload: bytes) -> None:
         """

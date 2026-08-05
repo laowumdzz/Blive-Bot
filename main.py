@@ -1,16 +1,10 @@
-from utils import ConfigManage
 import asyncio
 import os
 from pathlib import Path
 import sys
-
-from dotenv import load_dotenv
 from loguru import logger
-
-load_dotenv(verbose=True)
-
 from live_streams import BLiveClient, Handler, MsgType, models
-from utils import SignedParams, convert_str_to_list
+from utils import SignedParams, ConfigManage
 
 room_task: dict[int, BLiveClient]
 count: dict[str, int] = {
@@ -93,8 +87,7 @@ async def main():
     room_ids = ConfigManage().get("room_id")
     print(ConfigManage.get_all_config())
     if not room_ids:
-        raise KeyError("环境变量LIVE_ROOM_ID未设置")
-    # room_ids = convert_str_to_list(room_id)
+        raise KeyError("ROOM_ID未设置")
     room_task = {room_id: BLiveClient(room_id=room_id) for room_id in room_ids}
     try:
         for client in room_task.values():

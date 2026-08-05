@@ -55,7 +55,7 @@ class SignedParamsManager:
         "Referer": "https://www.bilibili.com/",
         "Origin": "http://www.bilibili.com",
     }
-    _session: ClassVar[aiohttp.ClientSession | None]
+    _session: ClassVar[aiohttp.ClientSession | None] = None
 
     @classmethod
     async def get_end_result(
@@ -132,7 +132,7 @@ class SignedParamsManager:
         :param compulsion: 是否强制刷新
         :return: access_id: str
         """
-        if (time.time() - (cls._temp_data.WbiKeys_update_timestamp + cls.flushed_time)) >= 0 or compulsion:
+        if (int(time.time()) - (cls._temp_data.access_id_update_timestamp + cls.flushed_time)) >= 0 or compulsion:
             if cls._session is None:
                 raise RuntimeError("session未初始化")
             try:
