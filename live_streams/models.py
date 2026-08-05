@@ -1,4 +1,5 @@
 """消息模板"""
+
 import abc
 import base64
 import enum
@@ -437,6 +438,7 @@ class LikeClickMessage(MessageInterface):
     """
     用户点赞事件
     """
+
     uname: str | None = None
     """用户名"""
     uid: int | None = None
@@ -461,6 +463,7 @@ class LikeUpdateMessage(MessageInterface):
     """
     点赞数量更新
     """
+
     click_count: int | None = None
     """点赞数"""
 
@@ -596,7 +599,4 @@ if TYPE_CHECKING:
         InteractWordV2Message = InteractWordV2Message
 else:
     # 运行时自动从所有 MessageInterface 子类生成消息类型枚举
-    MsgType = enum.Enum(
-        "MsgType",
-        {cls.__name__: cls for cls in _all_subclasses(MessageInterface)}
-    )
+    MsgType = enum.Enum("MsgType", {cls.__name__: cls for cls in _all_subclasses(MessageInterface)})

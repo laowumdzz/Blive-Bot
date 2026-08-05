@@ -1,3 +1,4 @@
+from utils import ConfigManage
 import asyncio
 import os
 from pathlib import Path
@@ -9,7 +10,7 @@ from loguru import logger
 load_dotenv(verbose=True)
 
 from live_streams import BLiveClient, Handler, MsgType, models
-from utils import convert_str_to_list
+from utils import SignedParams, convert_str_to_list
 
 room_task: dict[int, BLiveClient]
 count: dict[str, int] = {
@@ -24,15 +25,15 @@ count: dict[str, int] = {
 async def _(model: models.DanmakuMessage):
     count["Danmaku"] += 1
     print(
-        f"[{model.room_id}] | {model.uname}: {model.msg} | 等级: {model.user_level} | 舰队类型: {model.privilege_type}")
+        f"[{model.room_id}] | {model.uname}: {model.msg} | 等级: {model.user_level} | 舰队类型: {model.privilege_type}"
+    )
 
 
 @Handler.append_func(MsgType.GiftMessage)
 async def _(model: models.GiftMessage):
     if model.total_coin is None:
         raise RuntimeError("total_coin为None")
-    print(
-        f"[{model.room_id}] | {model.uname} 赠送{model.gift_name}x{model.num} | (CNYx{model.total_coin / 1000}元)")
+    print(f"[{model.room_id}] | {model.uname} 赠送{model.gift_name}x{model.num} | (CNYx{model.total_coin / 1000}元)")
 
 
 @Handler.append_func(MsgType.LikeUpdateMessage)
@@ -89,10 +90,11 @@ async def _(model: models.InteractWordMessage | models.InteractWordV2Message):
 
 async def main():
     global room_task
-    env_room_id = os.getenv("LIVE_ROOM_ID")
-    if not env_room_id:
+    room_ids = ConfigManage().get("room_id")
+    print(ConfigManage.get_all_config())
+    if not room_ids:
         raise KeyError("环境变量LIVE_ROOM_ID未设置")
-    room_ids = convert_str_to_list(env_room_id)
+    # room_ids = convert_str_to_list(room_id)
     room_task = {room_id: BLiveClient(room_id=room_id) for room_id in room_ids}
     try:
         for client in room_task.values():
@@ -103,6 +105,7 @@ async def main():
     finally:
         for client in room_task.values():
             await client.close()
+        await SignedParams.close()
 
 
 if __name__ == "__main__":

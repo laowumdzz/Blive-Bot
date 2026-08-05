@@ -1,4 +1,5 @@
 """消息解析模块"""
+
 import asyncio
 from typing import ClassVar
 
@@ -118,8 +119,7 @@ class Handler:
                 return
             model.room_id = room_id
             msg_type = MsgType(model_type)
-            logger.debug(
-                f"[{room_id}] [msg:{msg_id}] 分发消息 cmd={cmd} model={model_type.__name__}")
+            logger.debug(f"[{room_id}] [msg:{msg_id}] 分发消息 cmd={cmd} model={model_type.__name__}")
             callbacks = list(_func[msg_type])
             results = await asyncio.gather(
                 *(fun(model) for fun in callbacks),

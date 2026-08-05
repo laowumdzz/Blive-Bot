@@ -1,4 +1,5 @@
 """BLive客户端"""
+
 import asyncio
 from datetime import datetime
 import json
@@ -72,11 +73,11 @@ class BLiveClient:
     }
 
     def __init__(
-            self,
-            room_id: int | None = None,
-            user_id: int | None = None,
-            session_: aiohttp.ClientSession | None = None,
-            handler_: Handler = Handler(),
+        self,
+        room_id: int | None = None,
+        user_id: int | None = None,
+        session_: aiohttp.ClientSession | None = None,
+        handler_: Handler = Handler(),
     ):
         if not (room_id or user_id):
             raise KeyError("房间ID和UID必须输入一个")
@@ -107,7 +108,6 @@ class BLiveClient:
         :raise KeyError: 未找到该直播间或已被风控
         """
         params = await SignedParams.get_end_result(params={"type": 0, "id": self.room_id, "web_location": "444.8"})
-        await SignedParams.close()
         try:
             if self._session is None:
                 raise RuntimeError("session未初始化")
@@ -120,10 +120,9 @@ class BLiveClient:
                 "platform": "web",
                 "type": 2,
                 "roomid": self.room_id,
-                "key": data["token"]
+                "key": data["token"],
             }
-            uris = {
-                f"wss://{d['host']}:{d['wss_port']}/sub" for d in data["host_list"]}
+            uris = {f"wss://{d['host']}:{d['wss_port']}/sub" for d in data["host_list"]}
         except KeyError:
             logger.error(f"[{self.room_id}] 未找到该直播间或已被风控")
             raise
@@ -149,8 +148,13 @@ class BLiveClient:
                         task.add_done_callback(self._on_message_task_done)
             except asyncio.CancelledError:
                 logger.info(f"[{self.room_id}] 正在关闭直播监听")
-            except websockets.exceptions.ConnectionClosedError as e:
-                logger.opt(exception=e).error(f"[{self.room_id}] 连接意外关闭")
+                raise
+            except websockets.exceptions.ConnectionClosed as e:
+                if e.code == 1000:
+                    logger.info(f"[{self.room_id}] 连接正常关闭")
+                else:
+                    logger.opt(exception=e).warning(f"[{self.room_id}] 连接意外关闭")
+                raise
             finally:
                 if self._Heartbeat_Task is not None:
                     self._Heartbeat_Task.cancel()
@@ -165,6 +169,18 @@ class BLiveClient:
                     await self._ws.close()
                     self._ws = None
 
+        async def run_with_reconnect(max_retries: int = 3, base_delay: float = 1.0):
+            retry_count = 0
+            while not (max_retries >= 0 and retry_count >= max_retries):
+                try:
+                    await run()
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.opt(exception=e).error(f"[{self.room_id}] 未预期异常")
+                    retry_count += 1
+                    await asyncio.sleep(min(base_delay * (2**retry_count), 60.0))
+
         if params:
             self._Main_Task = asyncio.create_task(run())
             self.program_status = True
@@ -176,8 +192,7 @@ class BLiveClient:
         :param payload: 数据包
         :return: None
         """
-        header = struct.pack(">IHHII", 16 + len(payload),
-                             16, 1, packet_type, 1)
+        header = struct.pack(">IHHII", 16 + len(payload), 16, 1, packet_type, 1)
         """
         偏移量	长度	类型	    含义
         0	    4	uint32	封包总大小(头部大小+正文大小)
@@ -216,10 +231,7 @@ class BLiveClient:
         if not task.cancelled():
             exc = task.exception()
             if exc is not None:
-                logger.opt(exception=exc).error(
-                    f"[{self.room_id}] 消息处理任务异常退出: "
-                    f"{type(exc).__name__}: {exc}"
-                )
+                logger.opt(exception=exc).error(f"[{self.room_id}] 消息处理任务异常退出: {type(exc).__name__}: {exc}")
 
     async def _on_message(self, payload: bytes, msg_id: int | None = None) -> None:
         """
@@ -234,58 +246,47 @@ class BLiveClient:
         offset = 0
         body: bytes
         header = HeaderTuple(*HEADER_STRUCT.unpack_from(payload))
-        logger.debug(
-            f"[{self.room_id}] [msg:{msg_id}] 收到消息 operation={header.operation}")
+        logger.debug(f"[{self.room_id}] [msg:{msg_id}] 收到消息 operation={header.operation}")
         try:
             match header.operation:
                 case Operation.SEND_MSG_REPLY:
                     while True:
-                        body = payload[offset +
-                                       header.raw_header_size: offset + header.pack_len]
+                        body = payload[offset + header.raw_header_size : offset + header.pack_len]
                         await self._parse_message(header, body, msg_id)
                         offset += header.pack_len
                         if offset >= len(payload):
                             break
-                        header = HeaderTuple(
-                            *HEADER_STRUCT.unpack_from(payload, offset))
+                        header = HeaderTuple(*HEADER_STRUCT.unpack_from(payload, offset))
                 case Operation.HEARTBEAT_REPLY:
-                    message = payload[offset + header.raw_header_size:]
-                    heartbeat_values = [
-                        int.from_bytes(message[i:i + 4])
-                        for i in range(0, len(message), 4)
-                    ]
-                    logger.debug(
-                        f"[{self.room_id}] [msg:{msg_id}] 心跳回应: {heartbeat_values}"
-                    )
+                    message = payload[offset + header.raw_header_size :]
+                    heartbeat_values = [int.from_bytes(message[i : i + 4]) for i in range(0, len(message), 4)]
+                    logger.debug(f"[{self.room_id}] [msg:{msg_id}] 心跳回应: {heartbeat_values}")
                 case Operation.AUTH_REPLY:
-                    message = payload[offset + header.raw_header_size:]
+                    message = payload[offset + header.raw_header_size :]
                     decode_body = json.loads(message.decode())
                     if decode_body["code"] != AuthReplyCode.OK:
                         logger.error(f"[{self.room_id}] [msg:{msg_id}] 认证失败 | code:{decode_body['code']}")
-                        raise AuthError(
-                            f"auth reply error, code={decode_body['code']}, body={decode_body}")
+                        raise AuthError(f"auth reply error, code={decode_body['code']}, body={decode_body}")
                     logger.debug(f"[{self.room_id}] [msg:{msg_id}] 认证回应: {decode_body}")
         except struct.error:
-            logger.error(
-                f"[{self.room_id}] [msg:{msg_id}] parsing header failed offset={offset} payload={payload}")
+            logger.error(f"[{self.room_id}] [msg:{msg_id}] parsing header failed offset={offset} payload={payload}")
 
     async def _parse_message(self, header: HeaderTuple, payload: bytes, msg_id: int) -> None:
         decode_body: dict
         match header.ver:
             case ProtoVer.BROTLI:
-                await self._on_message(
-                    await asyncio.to_thread(brotli.decompress, payload), msg_id)
+                await self._on_message(await asyncio.to_thread(brotli.decompress, payload), msg_id)
             case ProtoVer.NORMAL:
                 if len(payload) != 0:
                     decode_body = json.loads(payload.decode())
                     if self.room_id is None:
                         raise RuntimeError("room_id未设置")
                     cmd = decode_body.get("cmd", "")
-                    logger.debug(
-                        f"[{self.room_id}] [msg:{msg_id}] 解析消息 cmd={cmd}")
+                    logger.debug(f"[{self.room_id}] [msg:{msg_id}] 解析消息 cmd={cmd}")
                     await self._msg_hander.handle(self.room_id, decode_body, msg_id)
-                    if self._config.save_history_method == 2:
-                        await asyncio.create_task(self._write_file(decode_body))
+                    # 暂时禁用写入文件功能
+                    # if self._config.save_history_method == 2:
+                    # await asyncio.create_task(self._write_file(decode_body))
 
     async def _write_file(self, data: dict) -> bool:
         file_path = TEMP_PATH / "bililive" / f"{self.room_id}.json"
@@ -294,8 +295,7 @@ class BLiveClient:
             if file_path.exists():
                 async with aiofiles.open(file_path, "r+", encoding="utf-8") as file:
                     content = await file.read()
-                    old_data: list[dict] = json.loads(
-                        content) if content else []
+                    old_data: list[dict] = json.loads(content) if content else []
                     old_data.append(data)
                     await file.seek(0)
                     await file.truncate()
@@ -381,8 +381,7 @@ class BLiveClient:
             data: dict = await response.json()
         match data["code"]:
             case 0:
-                logger.success(
-                    f"[{self.room_id}] | 成功发送消息: {data['msg'] if data.get('msg') else message}")
+                logger.success(f"[{self.room_id}] | 成功发送消息: {data['msg'] if data.get('msg') else message}")
             case -101:
                 logger.warning("账号未登录")
             case -111:
@@ -394,13 +393,12 @@ class BLiveClient:
             case 10031:
                 logger.warning("发送频率过快")
             case _:
-                logger.warning(
-                    f"未知错误code:{data['code']}, 消息:{data['message']}")
+                logger.warning(f"未知错误code:{data['code']}, 消息:{data['message']}")
 
     async def _get_cookie_csrf(self) -> str:
         cookie = self.headers["Cookie"]
-        csrf = cookie[cookie.find("bili_jct"):]
-        return csrf[9:csrf.find(";")]
+        csrf = cookie[cookie.find("bili_jct") :]
+        return csrf[9 : csrf.find(";")]
 
     async def _get_login_mid(self) -> int:
         try:
