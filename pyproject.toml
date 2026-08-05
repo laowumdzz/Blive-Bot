@@ -15,6 +15,7 @@ dependencies = [
     "cryptography>=46.0.4",
     "brotli>=1.2.0",
     "websockets>=16.0",
+    "msgpack>=1.2.1",
 ]
 
 [dependency-groups]
@@ -22,6 +23,7 @@ dev = [
     "pyrefly>=0.27.0",
     "pytest>=9.1.1",
     "ruff>=0.15.0",
+    "types-aiofiles>=25.1.0.20260518",
 ]
 
 [[tool.uv.index]]
