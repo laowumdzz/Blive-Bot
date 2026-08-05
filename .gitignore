@@ -212,3 +212,6 @@ temp/
 
 # WBI signature cache (auto-generated at runtime)
 utils/temp/
+temp.pkl
+
+.vscode
